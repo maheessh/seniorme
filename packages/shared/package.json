@@ -5,6 +5,7 @@
   "main": "src/index.ts",
   "types": "src/index.ts",
   "dependencies": {
+    "@ccc/db": "workspace:*",
     "zod": "4.5.4"
   }
 }

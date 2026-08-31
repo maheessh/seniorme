@@ -64,26 +64,30 @@ export async function setInboxStatus(jobId: string, status: InboxStatus): Promis
   await logStatusChange(jobId, job.title, job.company.name, status);
 
   if (status === "APPLIED") {
-    await prisma.application.upsert({
-      where: { jobId },
-      create: {
-        jobId,
-        companyId: job.companyId,
-        stage: "APPLIED",
-        appliedAt: new Date(),
-        descriptionSnapshot: job.descriptionRaw,
-      },
-      update: {},
-    });
-    await prisma.activityEvent.create({
-      data: {
-        type: "application_created",
-        entityType: "application",
-        entityId: jobId,
-        jobId,
-        summary: `Added to pipeline: ${job.title} at ${job.company.name}`,
-      },
-    });
+    const existing = await prisma.application.findUnique({ where: { jobId } });
+    if (!existing) {
+      const application = await prisma.application.create({
+        data: {
+          jobId,
+          companyId: job.companyId,
+          stage: "APPLIED",
+          appliedAt: new Date(),
+          descriptionSnapshot: job.descriptionRaw,
+        },
+      });
+      await prisma.applicationEvent.create({
+        data: { applicationId: application.id, fromStage: null, toStage: "APPLIED" },
+      });
+      await prisma.activityEvent.create({
+        data: {
+          type: "application_created",
+          entityType: "application",
+          entityId: jobId,
+          jobId,
+          summary: `Added to pipeline: ${job.title} at ${job.company.name}`,
+        },
+      });
+    }
   }
 }
 

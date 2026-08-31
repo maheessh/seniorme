@@ -240,6 +240,7 @@ model ApplicationEvent {
   fromStage     ApplicationStage?
   toStage       ApplicationStage
   note          String?
+  scheduledAt   DateTime?
   occurredAt    DateTime          @default(now())
 
   @@index([applicationId, occurredAt])
