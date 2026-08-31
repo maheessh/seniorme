@@ -1,5 +1,6 @@
 import { prisma } from "@ccc/db";
 import { Card, CardContent, CardHeader, CardTitle, CardValue } from "@/components/ui/card";
+import { ProgressBar } from "@/components/ui/progress-bar";
 
 async function getDashboardData() {
   const startOfToday = new Date();
@@ -16,6 +17,8 @@ async function getDashboardData() {
     rejectedCount,
     upcomingDeadlines,
     recentActivity,
+    activeProjects,
+    activeGoals,
   ] = await Promise.all([
     prisma.company.count(),
     prisma.job.count(),
@@ -34,6 +37,16 @@ async function getDashboardData() {
       include: { company: true, job: true },
     }),
     prisma.activityEvent.findMany({ orderBy: { occurredAt: "desc" }, take: 8 }),
+    prisma.project.findMany({
+      where: { status: { not: "COMPLETED" } },
+      orderBy: [{ priority: "desc" }, { updatedAt: "desc" }],
+      take: 5,
+    }),
+    prisma.goal.findMany({
+      where: { status: { in: ["NOT_STARTED", "IN_PROGRESS"] } },
+      orderBy: [{ priority: "desc" }, { updatedAt: "desc" }],
+      take: 5,
+    }),
   ]);
 
   return {
@@ -47,6 +60,8 @@ async function getDashboardData() {
     rejectedCount,
     upcomingDeadlines,
     recentActivity,
+    activeProjects,
+    activeGoals,
   };
 }
 
@@ -70,8 +85,8 @@ export default async function DashboardPage() {
         <p className="text-sm opacity-70">Welcome back</p>
         <h1 className="font-display mt-1 text-3xl">Here&apos;s where things stand.</h1>
         <p className="mt-2 max-w-xl text-sm opacity-70">
-          Companies, career-page monitoring, and the application pipeline will populate this
-          dashboard as they come online over the next phases.
+          Companies, career-page monitoring, the pipeline, and your senior-year projects and
+          goals, all in one place.
         </p>
       </div>
 
@@ -95,9 +110,7 @@ export default async function DashboardPage() {
           </CardHeader>
           <CardContent>
             {data.upcomingDeadlines.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                No deadlines yet — these will appear once applications are tracked (Phase 4).
-              </p>
+              <p className="text-sm text-muted-foreground">No deadlines coming up.</p>
             ) : (
               <ul className="flex flex-col gap-2">
                 {data.upcomingDeadlines.map((application) => (
@@ -132,6 +145,60 @@ export default async function DashboardPage() {
                     {event.summary}
                   </li>
                 ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Project progress</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {data.activeProjects.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No active projects right now.</p>
+            ) : (
+              <ul className="flex flex-col gap-3">
+                {data.activeProjects.map((project) => (
+                  <li key={project.id} className="flex flex-col gap-1">
+                    <div className="flex justify-between text-sm">
+                      <span>{project.name}</span>
+                      <span className="text-muted-foreground">{project.progressPercent}%</span>
+                    </div>
+                    <ProgressBar value={project.progressPercent} />
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Goal progress</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {data.activeGoals.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No active goals right now.</p>
+            ) : (
+              <ul className="flex flex-col gap-3">
+                {data.activeGoals.map((goal) => {
+                  const hasTarget = goal.targetValue != null && goal.targetValue > 0;
+                  const percent = hasTarget ? Math.min(100, (goal.currentValue / goal.targetValue!) * 100) : 0;
+                  return (
+                    <li key={goal.id} className="flex flex-col gap-1">
+                      <div className="flex justify-between text-sm">
+                        <span>{goal.title}</span>
+                        <span className="text-muted-foreground">
+                          {hasTarget ? `${goal.currentValue}/${goal.targetValue}` : ""}
+                        </span>
+                      </div>
+                      {hasTarget ? <ProgressBar value={percent} /> : null}
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </CardContent>

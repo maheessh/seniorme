@@ -3,17 +3,16 @@
 A personal career, project, and job-application command center. See [ARCHITECTURE.md](ARCHITECTURE.md)
 for the full system design, database schema, and phased implementation roadmap this project follows.
 
-**Status:** Phases 0–5 complete. Auth, database, base app shell, the web/worker process
-split, the company tracker, career-page monitoring (Greenhouse/Lever/Ashby adapters, BullMQ
-scheduler + worker, manual refresh, SSRF/robots.txt-safe fetching), the job discovery inbox
-(keyboard-driven triage, fuzzy-duplicate flagging, activity logging), the application pipeline
-(drag-and-drop Kanban + table views, stage history, contacts, deadlines, notes), and job-link
-import (tiered extraction — ATS API reuse, JSON-LD, Claude-assisted, OpenGraph — with company
-dedup and a manual-entry fallback) are all working end-to-end. Career-page monitoring also
-covers custom (non-ATS) career sites via generic JSON-LD/HTML-heuristic fallback tiers, and
-now honors a site's `Crawl-delay` from robots.txt. Remaining feature phases (projects/goals,
-analytics, notifications) build on top of this incrementally — see `ARCHITECTURE.md` §14 for
-the roadmap.
+**Status:** Phases 0–6 complete. Auth, database, base app shell, the web/worker process
+split, the company tracker, career-page monitoring (Greenhouse/Lever/Ashby adapters plus
+generic JSON-LD/HTML-heuristic fallback tiers for custom sites, BullMQ scheduler + worker,
+manual refresh, SSRF/robots.txt-safe fetching including `Crawl-delay`), the job discovery
+inbox (keyboard-driven triage, fuzzy-duplicate flagging, activity logging), the application
+pipeline (drag-and-drop Kanban + table views, stage history, contacts, deadlines, notes),
+job-link import (tiered extraction with company dedup and a manual-entry fallback), and
+projects/goals (task/milestone checklists, quick-increment progress, dashboard widgets) are
+all working end-to-end. Remaining feature phases (analytics, notifications) build on top of
+this incrementally — see `ARCHITECTURE.md` §14 for the roadmap.
 
 ## Stack
 
@@ -96,9 +95,8 @@ packages/
 
 ## Known limitations
 
-- Companies (Phase 1), career-page monitoring (Phase 2), the discovery inbox (Phase 3), the
-  application pipeline (Phase 4), and job-link import (Phase 5) all have full functionality;
-  projects and goals do not yet — those pages are intentionally simple placeholders that name
+- Companies (Phase 1) through projects/goals (Phase 6) all have full functionality; analytics
+  and notifications do not yet — those pages are intentionally simple placeholders that name
   the phase they arrive in.
 - Job-link import's Claude-assisted extraction tier only runs when `ANTHROPIC_API_KEY` is set
   in `.env` — without it, extraction still works via the ATS-API/JSON-LD/OpenGraph tiers, just
@@ -108,8 +106,12 @@ packages/
   `scheduledAt`) rather than a single field on `Application` — a role can have several
   scheduled rounds (OA, screen, interview, final) over its lifetime, so the date belongs to
   the specific stage transition it's attached to, not the application as a whole.
-- Only Greenhouse, Lever, and Ashby career sites are supported so far. Other URLs are saved
-  and clearly flagged as "no adapter available yet" rather than silently failing or faking data.
+- Career-page monitoring supports Greenhouse, Lever, and Ashby directly, plus generic
+  JSON-LD/HTML-heuristic fallback tiers for custom sites (verified against a real production
+  site — 30/30 postings extracted correctly, zero false positives). Pages that render their
+  job listings entirely client-side with no server-rendered content at all (no headless-browser
+  tier yet) are the one remaining gap, and fail with a clear, specific message rather than a
+  generic error.
 - Company logos are derived automatically from the domain (via DuckDuckGo's icon service) at
   create/update time — there's no manual upload path, by design.
 - Fuzzy-duplicate detection (pg_trgm title similarity) flags a possible repost for review in
