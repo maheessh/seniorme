@@ -125,11 +125,11 @@ Represented as Prisma-style models (final `schema.prisma` will match this closel
 enum Priority        { LOW MEDIUM HIGH }
 enum EmploymentType  { INTERNSHIP NEW_GRAD FULL_TIME CONTRACT }
 enum WorkMode        { REMOTE HYBRID ONSITE UNKNOWN }
-enum SourceType       { GREENHOUSE LEVER ASHBY SMARTRECRUITERS WORKDAY CUSTOM_JSONLD CUSTOM_HTML }
+enum SourceType       { GREENHOUSE LEVER ASHBY ICIMS SMARTRECRUITERS WORKDAY CUSTOM_JSONLD CUSTOM_HTML }
 enum ScrapeStatus     { SUCCESS PARTIAL_SUCCESS FAILURE }
-enum InboxStatus      { NEW INTERESTED SAVED NOT_INTERESTED APPLIED IGNORED }
+enum InboxStatus      { NEW SAVED APPLIED IGNORED }
 enum ApplicationStage {
-  DISCOVERED INTERESTED PREPARING APPLIED OA RECRUITER_SCREEN
+  SAVED PREPARING APPLIED OA RECRUITER_SCREEN
   INTERVIEW FINAL_INTERVIEW OFFER REJECTED WITHDRAWN CLOSED
 }
 enum ProjectStatus  { IDEA PLANNING BUILDING TESTING COMPLETED }
@@ -245,7 +245,7 @@ model Application {
   companyId         String
   company           Company           @relation(fields: [companyId], references: [id])
 
-  stage             ApplicationStage  @default(DISCOVERED)
+  stage             ApplicationStage  @default(SAVED)
   appliedAt         DateTime?
   deadline          DateTime?
   followUpDate      DateTime?

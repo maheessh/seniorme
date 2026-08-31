@@ -1,7 +1,7 @@
 import { prisma, type ApplicationStage, type Prisma } from "@ccc/db";
 import { ALL_STAGES, STAGE_LABEL } from "@ccc/shared";
 
-const PRE_APPLY_STAGES = new Set<ApplicationStage>(["DISCOVERED", "INTERESTED", "PREPARING"]);
+const PRE_APPLY_STAGES = new Set<ApplicationStage>(["SAVED", "PREPARING"]);
 
 const applicationInclude = {
   job: true,

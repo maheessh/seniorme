@@ -35,6 +35,7 @@ enum SourceType {
   GREENHOUSE
   LEVER
   ASHBY
+  ICIMS
   SMARTRECRUITERS
   WORKDAY
   CUSTOM_JSONLD
@@ -49,16 +50,13 @@ enum ScrapeStatus {
 
 enum InboxStatus {
   NEW
-  INTERESTED
   SAVED
-  NOT_INTERESTED
   APPLIED
   IGNORED
 }
 
 enum ApplicationStage {
-  DISCOVERED
-  INTERESTED
+  SAVED
   PREPARING
   APPLIED
   OA
@@ -193,6 +191,7 @@ model Job {
   postedAt           DateTime?
   discoveredAt       DateTime      @default(now())
   inboxStatus        InboxStatus   @default(NEW)
+  updatedAt          DateTime      @updatedAt
   isRemoved          Boolean       @default(false)
   possibleDuplicateOfId String?
   possibleDuplicateOf   Job?       @relation("JobDuplicates", fields: [possibleDuplicateOfId], references: [id])
@@ -204,6 +203,7 @@ model Job {
   @@unique([companyId, externalJobId])
   @@index([companyId, inboxStatus])
   @@index([discoveredAt])
+  @@index([inboxStatus, updatedAt])
   @@index([title(ops: raw("gin_trgm_ops"))], type: Gin)
 }
 
@@ -214,7 +214,7 @@ model Application {
   companyId           String
   company             Company           @relation(fields: [companyId], references: [id])
 
-  stage               ApplicationStage  @default(DISCOVERED)
+  stage               ApplicationStage  @default(SAVED)
   appliedAt           DateTime?
   deadline            DateTime?
   followUpDate        DateTime?

@@ -1,13 +1,6 @@
 import { prisma, type InboxStatus, type Prisma } from "@ccc/db";
 
-export const INBOX_STATUSES: InboxStatus[] = [
-  "NEW",
-  "INTERESTED",
-  "SAVED",
-  "APPLIED",
-  "NOT_INTERESTED",
-  "IGNORED",
-];
+export const INBOX_STATUSES: InboxStatus[] = ["NEW", "SAVED", "APPLIED", "IGNORED"];
 
 export type InboxCounts = Record<InboxStatus, number>;
 
@@ -35,10 +28,8 @@ export function listInboxJobs(status: InboxStatus) {
 
 const STATUS_SUMMARY: Record<InboxStatus, string> = {
   NEW: "Reset to new",
-  INTERESTED: "Marked interested",
   SAVED: "Saved for later",
   APPLIED: "Applied to",
-  NOT_INTERESTED: "Marked not interested",
   IGNORED: "Ignored",
 };
 

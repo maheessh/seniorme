@@ -160,24 +160,67 @@ async function upsertJobPosting(
 
   if (existing) {
     const descriptionChanged = Boolean(contentHash) && contentHash !== existing.descriptionHash;
-    if (descriptionChanged || existing.isRemoved) {
-      await prisma.job.update({
-        where: { id: existing.id },
-        data: {
-          isRemoved: false,
-          ...(descriptionChanged
-            ? { descriptionRaw: posting.description, descriptionHash: contentHash }
-            : {}),
-        },
-      });
-      if (descriptionChanged) {
+    const titleChanged = posting.title !== existing.title;
+    const locationChanged = posting.location !== existing.location;
+    const postedAtChanged =
+      posting.postedAt !== null &&
+      (!existing.postedAt || posting.postedAt.getTime() !== existing.postedAt.getTime());
+    // Keeps the "still listed" check below (externalJobId notIn [this scrape's ids]) from
+    // wrongly flagging a job as removed just because an adapter's id scheme changed (e.g. the
+    // generic HTML heuristic's hash-of-url ids vs a real ATS's numeric ids) — the job matched
+    // via canonicalUrlHash, so it's still there, but its stored id needs to move with it.
+    const externalJobIdChanged = posting.externalJobId !== existing.externalJobId;
+
+    if (
+      descriptionChanged ||
+      titleChanged ||
+      locationChanged ||
+      postedAtChanged ||
+      externalJobIdChanged ||
+      existing.isRemoved
+    ) {
+      try {
+        await prisma.job.update({
+          where: { id: existing.id },
+          data: {
+            isRemoved: false,
+            ...(descriptionChanged
+              ? { descriptionRaw: posting.description, descriptionHash: contentHash }
+              : {}),
+            ...(titleChanged ? { title: posting.title } : {}),
+            ...(locationChanged ? { location: posting.location } : {}),
+            ...(postedAtChanged ? { postedAt: posting.postedAt } : {}),
+            ...(externalJobIdChanged ? { externalJobId: posting.externalJobId } : {}),
+          },
+        });
+      } catch (error) {
+        // Rare: the new externalJobId collides with another existing job at this company.
+        // Retry without that one field rather than losing the description/title/date refresh.
+        if (externalJobIdChanged && error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+          await prisma.job.update({
+            where: { id: existing.id },
+            data: {
+              isRemoved: false,
+              ...(descriptionChanged
+                ? { descriptionRaw: posting.description, descriptionHash: contentHash }
+                : {}),
+              ...(titleChanged ? { title: posting.title } : {}),
+              ...(locationChanged ? { location: posting.location } : {}),
+              ...(postedAtChanged ? { postedAt: posting.postedAt } : {}),
+            },
+          });
+        } else {
+          throw error;
+        }
+      }
+      if (descriptionChanged || titleChanged) {
         await prisma.activityEvent.create({
           data: {
             type: "job_updated",
             entityType: "job",
             entityId: existing.id,
             jobId: existing.id,
-            summary: `Job description updated: ${existing.title} at ${companyName}`,
+            summary: `Job details updated: ${posting.title} at ${companyName}`,
           },
         });
       }

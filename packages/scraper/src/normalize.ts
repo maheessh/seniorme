@@ -37,6 +37,7 @@ const SOURCE_TYPE_BY_HOST: Array<[RegExp, SourceType]> = [
   [/(^|\.)greenhouse\.io$/i, "GREENHOUSE"],
   [/(^|\.)lever\.co$/i, "LEVER"],
   [/(^|\.)ashbyhq\.com$/i, "ASHBY"],
+  [/(^|\.)icims\.com$/i, "ICIMS"],
   [/(^|\.)smartrecruiters\.com$/i, "SMARTRECRUITERS"],
   [/(^|\.)myworkdayjobs\.com$/i, "WORKDAY"],
 ];

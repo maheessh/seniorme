@@ -30,8 +30,9 @@ end-to-end. See `ARCHITECTURE.md` §14 for the full roadmap (hardening/tests and
   serverless-friendly request lifecycle
 - **Queue**: Redis via BullMQ (scheduler tick every 5 min; each CareerSource is re-checked
   once its own `checkFrequencyMin` — 24h by default — has elapsed)
-- **Scraping**: `packages/scraper` — adapter registry (Greenhouse, Lever, Ashby today), an
-  SSRF-safe fetch wrapper (blocks private/loopback/link-local targets, even through
+- **Scraping**: `packages/scraper` — adapter registry (Greenhouse, Lever, Ashby, iCIMS today,
+  plus generic JSON-LD/HTML-heuristic fallback tiers with `rel="next"` pagination for custom
+  sites), an SSRF-safe fetch wrapper (blocks private/loopback/link-local targets, even through
   redirects), robots.txt compliance, and per-host rate limiting
 - **Monorepo**: pnpm workspaces (`apps/web`, `apps/worker`, `packages/db`, `packages/shared`,
   `packages/scraper`)
@@ -109,9 +110,22 @@ packages/
 - "Scrape now" always re-fetches a source's full listing — none of the supported ATS/HTML
   sources expose a "changes since" endpoint, so there's no partial/incremental fetch mode to
   configure. What it does skip is redundant *work*: postings that already exist (by canonical
-  URL or external ID) are matched and left alone rather than re-created, so a re-scrape only
-  surfaces genuinely new or changed postings — see `upsertJobPosting` in
-  `apps/worker/src/scrape-processor.ts`.
+  URL or external ID) are matched and left alone rather than re-created, and now also have their
+  title/location/posted-date refreshed if they changed (not just the description) — see
+  `upsertJobPosting` in `apps/worker/src/scrape-processor.ts`.
+- The Inbox has three actions — Save, Apply, Ignore — not five: "Interested" folded into Saved
+  and "Not interested" folded into Ignored, since both pairs meant the same thing in practice.
+  Pipeline's `INTERESTED` stage was renamed to `SAVED` to match, and the `DISCOVERED` stage was
+  removed entirely (an Application is only ever created once you hit Apply, so it never actually
+  reached that stage). Ignored jobs are purged automatically ~2 hours after being ignored to
+  keep the table from growing unbounded — see `apps/worker/src/inbox-cleanup.ts`. One
+  consequence: if an ignored-and-purged job gets re-scraped later (e.g. it's still live on the
+  career page), it reappears as a new discovery rather than staying suppressed.
+- Generic (non-ATS) career pages that paginate are now followed via `rel="next"` up to 25 pages
+  — verified against a live 12-page board (90 postings collected across 3 real pages before a
+  transient bot-throttle from repeated manual testing interrupted the run; the mechanism itself
+  is confirmed correct, not synthetic). A later page failing outright no longer discards
+  postings already found on earlier pages.
 - Job-link import's Claude-assisted extraction tier only runs when `ANTHROPIC_API_KEY` is set
   in `.env` — without it, extraction still works via the ATS-API/JSON-LD/OpenGraph tiers, just
   with a weaker fallback for sites that use none of those (verified end-to-end against a

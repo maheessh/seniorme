@@ -9,11 +9,8 @@ import { clearPossibleDuplicateAction, setInboxStatusAction } from "./actions";
 import { InboxRow } from "./inbox-row";
 
 const SHORTCUT_TO_STATUS: Record<string, InboxStatus> = {
-  i: "INTERESTED",
   s: "SAVED",
   a: "APPLIED",
-  x: "NOT_INTERESTED",
-  n: "NOT_INTERESTED",
   g: "IGNORED",
 };
 

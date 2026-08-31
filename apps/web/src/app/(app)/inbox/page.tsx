@@ -10,11 +10,9 @@ function parseStatus(value: string | undefined): InboxStatus {
 
 const EMPTY_LABEL: Record<InboxStatus, string> = {
   NEW: "No newly discovered jobs right now — check back after the next career-page scan, or trigger a manual refresh from Companies.",
-  INTERESTED: "Nothing marked interested yet.",
   SAVED: "Nothing saved for later yet.",
   APPLIED: "No applications started from the inbox yet.",
-  NOT_INTERESTED: "Nothing marked not interested yet.",
-  IGNORED: "Nothing ignored yet.",
+  IGNORED: "Nothing ignored yet — ignored jobs are cleared out automatically after a couple of hours.",
 };
 
 export default async function InboxPage({
@@ -36,10 +34,8 @@ export default async function InboxPage({
             Triage discovered jobs fast — click a row or press{" "}
             <kbd className="rounded border border-border px-1 text-xs">j</kbd>/
             <kbd className="rounded border border-border px-1 text-xs">k</kbd> to move,{" "}
-            <kbd className="rounded border border-border px-1 text-xs">i</kbd> interested,{" "}
             <kbd className="rounded border border-border px-1 text-xs">s</kbd> save,{" "}
             <kbd className="rounded border border-border px-1 text-xs">a</kbd> apply,{" "}
-            <kbd className="rounded border border-border px-1 text-xs">x</kbd> not interested,{" "}
             <kbd className="rounded border border-border px-1 text-xs">g</kbd> ignore,{" "}
             <kbd className="rounded border border-border px-1 text-xs">Enter</kbd> expand.
           </p>

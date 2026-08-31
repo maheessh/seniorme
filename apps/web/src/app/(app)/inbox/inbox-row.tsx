@@ -1,6 +1,6 @@
 import type { InboxStatus } from "@ccc/db";
 import { differenceInDays, formatDistanceToNow } from "date-fns";
-import { Archive, Bookmark, CheckCircle2, ExternalLink, ThumbsDown, ThumbsUp, X } from "lucide-react";
+import { Archive, Bookmark, CheckCircle2, ExternalLink, X } from "lucide-react";
 import { forwardRef } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -101,17 +101,11 @@ export const InboxRow = forwardRef<
           >
             <ExternalLink className="h-4 w-4" />
           </a>
-          <Button type="button" variant="ghost" size="icon" aria-label="Interested" onClick={() => onAct("INTERESTED")}>
-            <ThumbsUp className="h-4 w-4" />
-          </Button>
           <Button type="button" variant="ghost" size="icon" aria-label="Save for later" onClick={() => onAct("SAVED")}>
             <Bookmark className="h-4 w-4" />
           </Button>
           <Button type="button" variant="ghost" size="icon" aria-label="Apply" onClick={() => onAct("APPLIED")}>
             <CheckCircle2 className="h-4 w-4" />
-          </Button>
-          <Button type="button" variant="ghost" size="icon" aria-label="Not interested" onClick={() => onAct("NOT_INTERESTED")}>
-            <ThumbsDown className="h-4 w-4" />
           </Button>
           <Button type="button" variant="ghost" size="icon" aria-label="Ignore" onClick={() => onAct("IGNORED")}>
             <Archive className="h-4 w-4" />

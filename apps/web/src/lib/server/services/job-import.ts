@@ -97,7 +97,7 @@ export async function importJob(input: JobImportInput): Promise<{ jobId: string;
 
   // Reuses the same status-change logic the Inbox uses (activity logging, Application
   // creation on APPLIED) so an imported job behaves identically to a discovered one from here on.
-  await setInboxStatus(jobId, input.addToPipeline ? "APPLIED" : "INTERESTED");
+  await setInboxStatus(jobId, input.addToPipeline ? "APPLIED" : "SAVED");
 
   return { jobId, alreadyExisted: Boolean(existing) };
 }

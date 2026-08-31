@@ -1,6 +1,7 @@
 import type { ScrapeJobData } from "@ccc/shared";
 import { SCRAPE_QUEUE_NAME } from "@ccc/shared";
 import { Worker, type Job } from "bullmq";
+import { cleanupIgnoredJobs } from "./inbox-cleanup";
 import { logger } from "./logger";
 import { runNotificationChecks } from "./notification-checks";
 import { connection } from "./redis";
@@ -14,6 +15,7 @@ export function startWorker(): Worker {
       if (job.name === "scheduler-tick") {
         await enqueueDueSources();
         await runNotificationChecks();
+        await cleanupIgnoredJobs();
         return;
       }
       if (job.name === "scrape-career-source") {

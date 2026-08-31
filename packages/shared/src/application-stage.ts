@@ -6,8 +6,7 @@ import type { ApplicationStage } from "@ccc/db";
 // the browser bundle and break the build.
 
 export const PIPELINE_STAGES: ApplicationStage[] = [
-  "DISCOVERED",
-  "INTERESTED",
+  "SAVED",
   "PREPARING",
   "APPLIED",
   "OA",
@@ -22,8 +21,7 @@ export const TERMINAL_STAGES: ApplicationStage[] = ["REJECTED", "WITHDRAWN", "CL
 export const ALL_STAGES: ApplicationStage[] = [...PIPELINE_STAGES, ...TERMINAL_STAGES];
 
 export const STAGE_LABEL: Record<ApplicationStage, string> = {
-  DISCOVERED: "Discovered",
-  INTERESTED: "Interested",
+  SAVED: "Saved",
   PREPARING: "Preparing",
   APPLIED: "Applied",
   OA: "OA / Assessment",

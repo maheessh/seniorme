@@ -5,10 +5,8 @@ import { INBOX_STATUSES, type InboxCounts } from "@/lib/server/services/inbox";
 
 const LABELS: Record<InboxStatus, string> = {
   NEW: "New",
-  INTERESTED: "Interested",
   SAVED: "Saved",
   APPLIED: "Applied",
-  NOT_INTERESTED: "Not interested",
   IGNORED: "Ignored",
 };
 

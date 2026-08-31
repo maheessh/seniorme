@@ -120,7 +120,7 @@ const MAX_PAGES = 25;
  * way). Returns null if there's no next page, it points off-host, or it points back at the
  * current page (loop guard).
  */
-function findNextPageUrl(html: string, currentUrl: string): string | null {
+export function findNextPageUrl(html: string, currentUrl: string): string | null {
   const $ = cheerio.load(html);
   const href = $('a[rel="next"], link[rel="next"]').first().attr("href");
   if (!href) return null;
