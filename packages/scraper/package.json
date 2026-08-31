@@ -7,6 +7,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.122.0",
     "@ccc/db": "workspace:*",
+    "cheerio": "^1.2.0",
     "robots-parser": "^3.0.1"
   },
   "devDependencies": {

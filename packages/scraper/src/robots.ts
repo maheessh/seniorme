@@ -1,5 +1,5 @@
 import robotsParser from "robots-parser";
-import { safeFetchText } from "./safe-fetch";
+import { safeFetchText, setMinHostInterval } from "./safe-fetch";
 
 type Robot = ReturnType<typeof robotsParser>;
 
@@ -19,6 +19,11 @@ async function getRobots(origin: string): Promise<Robot | null> {
     const robotsUrl = new URL("/robots.txt", origin).toString();
     const text = await safeFetchText(robotsUrl);
     robot = robotsParser(robotsUrl, text);
+
+    const crawlDelaySeconds = robot.getCrawlDelay(USER_AGENT);
+    if (crawlDelaySeconds) {
+      setMinHostInterval(new URL(origin).hostname, crawlDelaySeconds * 1000);
+    }
   } catch {
     // No robots.txt, or it's unreachable — treat as "no restrictions" per common convention.
     robot = null;

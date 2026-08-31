@@ -1,10 +1,11 @@
 import { Prisma, prisma } from "@ccc/db";
 import {
-  detectSourceType,
+  extractGenericBoardPostings,
   hashContent,
   hashUrl,
   isAllowedByRobots,
   resolveAdapter,
+  safeFetchText,
   type RawJobPosting,
 } from "@ccc/scraper";
 import { logger } from "./logger";
@@ -36,16 +37,30 @@ export async function processScrapeSource(
       throw new Error("Fetching this URL is disallowed by the site's robots.txt");
     }
 
-    const adapter = resolveAdapter(source.url);
-    if (!adapter) {
-      const detected = detectSourceType(source.url);
-      throw new Error(
-        `No adapter available yet for this career page (detected type: ${detected}). Greenhouse, Lever, and Ashby boards are supported so far.`,
-      );
-    }
-    resolvedType = adapter.type;
+    let postings: RawJobPosting[];
 
-    const { postings } = await adapter.fetchPostings(source.url);
+    const adapter = resolveAdapter(source.url);
+    if (adapter) {
+      resolvedType = adapter.type;
+      ({ postings } = await adapter.fetchPostings(source.url));
+    } else {
+      // No known-ATS adapter matches this URL — fall back to generic tiers: JSON-LD embedded
+      // on the listing page, then a conservative HTML-link heuristic. Both operate on the
+      // same fetched HTML, so this is one request, not two.
+      const html = await safeFetchText(source.url);
+      const generic = extractGenericBoardPostings(html, source.url);
+      if (!generic) {
+        throw new Error(
+          "Couldn't find any job postings on this page. Greenhouse, Lever, and Ashby boards " +
+            "are supported directly; other sites need either schema.org JobPosting data or a " +
+            "clear list of job links in the page's HTML — this page may render its listings " +
+            "with JavaScript, which isn't supported yet.",
+        );
+      }
+      resolvedType = generic.resolvedType;
+      postings = generic.postings;
+    }
+
     jobsFound = postings.length;
 
     const seen = new Set<string>();

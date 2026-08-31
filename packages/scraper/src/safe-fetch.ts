@@ -6,9 +6,20 @@ const USER_AGENT =
 const REQUEST_TIMEOUT_MS = 10_000;
 const MAX_RESPONSE_BYTES = 5 * 1024 * 1024;
 const MAX_REDIRECTS = 5;
-const MIN_HOST_INTERVAL_MS = 1000;
+const DEFAULT_MIN_HOST_INTERVAL_MS = 1000;
+const MAX_MIN_HOST_INTERVAL_MS = 30_000; // cap even an extreme Crawl-delay so one host can't stall a run
 
 const lastFetchByHost = new Map<string, number>();
+const minIntervalByHost = new Map<string, number>();
+
+/**
+ * Lets robots.txt's Crawl-delay (parsed separately in robots.ts) override the default
+ * per-host spacing — some sites explicitly ask for slower crawling, and we should honor that
+ * rather than always using our own default.
+ */
+export function setMinHostInterval(hostname: string, ms: number): void {
+  minIntervalByHost.set(hostname, Math.min(Math.max(ms, DEFAULT_MIN_HOST_INTERVAL_MS), MAX_MIN_HOST_INTERVAL_MS));
+}
 
 export class SsrfBlockedError extends Error {
   constructor(hostname: string) {
@@ -57,8 +68,9 @@ async function assertPublicHost(hostname: string): Promise<void> {
 }
 
 function waitForHostSlot(hostname: string): Promise<void> {
+  const minInterval = minIntervalByHost.get(hostname) ?? DEFAULT_MIN_HOST_INTERVAL_MS;
   const last = lastFetchByHost.get(hostname) ?? 0;
-  const wait = Math.max(0, last + MIN_HOST_INTERVAL_MS - Date.now());
+  const wait = Math.max(0, last + minInterval - Date.now());
   lastFetchByHost.set(hostname, Date.now() + wait);
   return wait > 0 ? new Promise((resolve) => setTimeout(resolve, wait)) : Promise.resolve();
 }

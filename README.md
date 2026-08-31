@@ -9,9 +9,11 @@ scheduler + worker, manual refresh, SSRF/robots.txt-safe fetching), the job disc
 (keyboard-driven triage, fuzzy-duplicate flagging, activity logging), the application pipeline
 (drag-and-drop Kanban + table views, stage history, contacts, deadlines, notes), and job-link
 import (tiered extraction — ATS API reuse, JSON-LD, Claude-assisted, OpenGraph — with company
-dedup and a manual-entry fallback) are all working end-to-end. Remaining feature phases
-(projects/goals, analytics, notifications) build on top of this incrementally — see
-`ARCHITECTURE.md` §14 for the roadmap.
+dedup and a manual-entry fallback) are all working end-to-end. Career-page monitoring also
+covers custom (non-ATS) career sites via generic JSON-LD/HTML-heuristic fallback tiers, and
+now honors a site's `Crawl-delay` from robots.txt. Remaining feature phases (projects/goals,
+analytics, notifications) build on top of this incrementally — see `ARCHITECTURE.md` §14 for
+the roadmap.
 
 ## Stack
 

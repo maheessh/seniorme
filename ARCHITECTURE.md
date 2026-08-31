@@ -483,15 +483,28 @@ interface CareerSiteAdapter {
 4. **SmartRecruiters** — `https://api.smartrecruiters.com/v1/companies/{company}/postings` (public API).
 5. **Workday** — many tenants expose a JSON CXS endpoint (`/wday/cxs/{tenant}/{site}/jobs`); adapter
    attempts this first and falls back to tier 6 if the tenant doesn't expose it.
-6. **Generic JSON-LD** — fetch the HTML, look for `<script type="application/ld+json">` blocks with
-   `@type: JobPosting` (schema.org) — very common even on custom-built career pages, and far more
-   stable than CSS-selector scraping since it's meant to be machine-read (for Google Jobs).
-7. **Generic HTML heuristics (Cheerio)** — pattern-match common structures (repeated card-like
-   elements containing a title + link) as a best-effort tier; results are flagged
-   `confidence: "low"` and surfaced for you to confirm rather than trusted blindly.
-8. **Playwright (headless)** — only when the page requires JS execution to render postings at all
-   (detected by: tier 6/7 returning nothing on the raw HTML, but the URL still looks like a jobs
-   page). Slowest, heaviest, used last.
+6. **Generic JSON-LD** *(implemented)* — fetch the listing page's HTML, look for every
+   `<script type="application/ld+json">` block with `@type: JobPosting` (schema.org) — very
+   common even on custom-built career pages (done for Google for Jobs SEO), and far more stable
+   than CSS-selector scraping since it's meant to be machine-read. Verified against Waymo's
+   Clinch-powered careers page and a synthetic multi-posting fixture.
+7. **Generic HTML heuristics (Cheerio)** *(implemented)* — looks for repeated same-hostname
+   links matching a job-URL shape (`/jobs/…`, `/careers/…`, etc.), filters obvious nav/footer
+   noise, and requires at least 3 distinct matches before trusting the result — a page with 1–2
+   stray matches is treated as noise, not a listing. Results land in `sourceType: CUSTOM_HTML`,
+   distinct from `CUSTOM_JSONLD`, so lower-confidence data is visibly labeled as such. Verified
+   against the same Waymo page (30 real postings, zero false positives from its JS asset
+   references or self-referential search/filter links) and a synthetic false-positive check.
+8. **Playwright (headless)** *(not implemented)* — only needed when a page requires JS execution
+   to render postings at all (tiers 6–7 find nothing because the server sends an empty shell).
+   Deliberately deferred: heavier dependency (~300MB browser binary), slower/more fragile scrapes,
+   and most real custom career pages turned out to be reachable via tiers 6–7 without it. A
+   `CareerSource` that hits this case fails with a clear, honest message rather than a generic
+   error, and is a known, visible gap rather than a silent one.
+
+**Politeness note:** `Crawl-delay` in a site's `robots.txt`, when present, now overrides the
+default 1s per-host minimum spacing (capped at 30s) — discovered as a real gap while testing
+against a site that explicitly requests a 5s delay.
 
 **On adding a CareerSource**, the system probes tiers 1–4 by pattern-matching the URL/hostname
 (e.g. `*.greenhouse.io`, `jobs.lever.co/*`) before falling through to 5–8, and stores the resolved
