@@ -1,7 +1,8 @@
 # Career Command Center
 
 A personal career, project, and job-application command center. See [ARCHITECTURE.md](ARCHITECTURE.md)
-for the full system design, database schema, and phased implementation roadmap this project follows.
+for the full system design, database schema, and phased implementation roadmap this project
+follows, and [DEPLOYMENT.md](DEPLOYMENT.md) for the optional cloud deployment path.
 
 **Status:** Phases 0–8 complete. Auth, database, base app shell, the web/worker process
 split, the company tracker (with a one-click "scrape now" that refreshes every active career
@@ -18,13 +19,16 @@ computed from real Prisma aggregations, no dummy data), and notifications (in-ap
 center with an unread badge in the sidebar; triggers for new matching jobs, approaching
 application deadlines, due follow-ups, upcoming interviews, goal deadlines, and repeated
 scraper failures, all dedup-aware so the same event never re-notifies) are all working
-end-to-end. **Phase 9 (hardening) is complete**: a global command palette (`⌘K`/`Ctrl+K`,
-search-to-jump across every page), keyboard-operable Kanban drag-and-drop, a WCAG-AA color
-contrast pass, a virtualized Inbox list (career-page pagination means the New tab routinely
-holds 100+ jobs — only the rows near the viewport are ever mounted), a per-page browser tab
-title on every route, a skip-to-content link, and a 117-test unit/integration suite plus a
-9-scenario Playwright E2E suite covering the flows in `ARCHITECTURE.md` §12 (see "Running
-tests"). Phase 10 (deployment docs) is next — see `ARCHITECTURE.md` §14 for the roadmap.
+end-to-end. **Phases 9 and 10 are also complete** — see [DEPLOYMENT.md](DEPLOYMENT.md) for the
+optional cloud path, including six real bugs in the (previously never-built) Docker images that
+were found and fixed by actually building and running them end-to-end (through a real login)
+rather than just writing the deployment steps against untested Dockerfiles. Phase 9 added a
+global command palette (`⌘K`/`Ctrl+K`, search-to-jump across every page), keyboard-operable
+Kanban drag-and-drop, a WCAG-AA color contrast pass, a virtualized Inbox list (career-page
+pagination means the New tab routinely holds 100+ jobs — only the rows near the viewport are
+ever mounted), a per-page browser tab title on every route, a skip-to-content link, and a
+117-test unit/integration suite plus a 9-scenario Playwright E2E suite covering the flows in
+`ARCHITECTURE.md` §12 (see "Running tests"). All ten phases from `ARCHITECTURE.md` §14 are done.
 
 ## Stack
 
@@ -152,8 +156,7 @@ packages/
 
 ## Known limitations
 
-- Companies (Phase 1) through hardening (Phase 9) all have full functionality; deployment docs
-  (Phase 10) are the only remaining roadmap item. Test coverage: `packages/scraper` has an
+- All ten phases from `ARCHITECTURE.md` §14 are complete. Test coverage: `packages/scraper` has an
   86-test Vitest unit suite (URL/content normalization, ATS-type detection, both JSON-LD
   extraction paths, the generic HTML-link heuristic's guard rails, `rel="next"` pagination, the
   iCIMS adapter, and the SSRF guard's IP-blocking — writing that last suite caught two real bugs,

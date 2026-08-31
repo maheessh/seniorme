@@ -4,9 +4,7 @@ import { config as loadEnv } from "dotenv";
 
 // Reuses NEXTAUTH_SECRET and the app-user credentials from the root .env (harmless — the
 // database these tests run against is `ccc_test`, a completely separate database from the
-// `ccc` one used by day-to-day dev/prod, so there's no real-data collision risk). Only
-// DATABASE_URL and NEXTAUTH_URL are overridden below, to point at the test DB and the
-// dedicated E2E port rather than whatever's already running on 3000.
+// `ccc` one used by day-to-day dev/prod, so there's no real-data collision risk).
 loadEnv({ path: path.resolve(__dirname, "../../.env") });
 
 const PORT = 3100;
@@ -30,6 +28,13 @@ export default defineConfig({
     env: {
       ...process.env,
       DATABASE_URL: "postgresql://ccc:ccc@localhost:5432/ccc_test?schema=public",
+      // A "Scrape now" click in the companies E2E test enqueues a real BullMQ job — without
+      // this, it lands in the same Redis keyspace (db 0) as a real `pnpm dev:worker` instance,
+      // which then logs a harmless but noisy "CareerSource no longer exists" warning trying to
+      // process a job that only makes sense against ccc_test. DB index 1 keeps E2E's queue
+      // activity fully isolated (confirmed live: this warning showed up in the real worker's
+      // log before this fix).
+      REDIS_URL: "redis://localhost:6379/1",
       NEXTAUTH_URL: baseURL,
       PORT: String(PORT),
     },
