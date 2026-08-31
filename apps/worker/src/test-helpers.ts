@@ -14,7 +14,6 @@ const TABLES = [
   "ScrapeRun",
   "CareerSource",
   "Company",
-  "User",
 ];
 
 /** Wipes every table between tests so each one starts from a clean slate. CASCADE + listing

@@ -1,7 +1,14 @@
 import { expect, test } from "@playwright/test";
 
-test("dashboard loads with real KPI data after login", async ({ page }) => {
+test("landing page shows branding and enters the app", async ({ page }) => {
   await page.goto("/");
+  await expect(page.getByRole("heading", { name: "Senior Me" })).toBeVisible();
+  await page.getByRole("link", { name: "Enter" }).click();
+  await expect(page.getByRole("heading", { name: "Here's where things stand." })).toBeVisible();
+});
+
+test("dashboard loads with real KPI data", async ({ page }) => {
+  await page.goto("/dashboard");
   await expect(page.getByRole("heading", { name: "Here's where things stand." })).toBeVisible();
 
   // Asserts a real (non-zero) count rendered rather than an exact value — other spec files in
@@ -15,7 +22,7 @@ test("dashboard loads with real KPI data after login", async ({ page }) => {
 });
 
 test("sidebar navigates to every page without a full reload", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/dashboard");
   for (const [label, heading] of [
     ["Inbox", "Inbox"],
     ["Pipeline", "Pipeline"],

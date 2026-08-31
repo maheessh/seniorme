@@ -1,7 +1,12 @@
-# Career Command Center — Architecture & Implementation Plan
+# Senior Me — Architecture & Implementation Plan
 
 Status: **Planning only — no application code has been written yet.** This document is the
 output of the architecture phase. Implementation begins after you review and approve this.
+
+> **Update (post-Phase-10):** the app was rebranded from "Career Command Center" to "Senior Me,"
+> and the single-user login described below was removed entirely — this only ever runs locally
+> for one person, so there was nothing for it to authenticate against. See §10 for the current
+> state. The rest of this document is left as the original planning record.
 
 Decisions already made with you:
 - **Design inspiration**: [cluely.com](https://cluely.com) — soft gradient hero backgrounds, a serif
@@ -13,7 +18,8 @@ Decisions already made with you:
 - **Deployment**: local-only for now (Docker Compose), architected so it can move to
   Railway/Fly/Render later with minimal change.
 - **Stack**: Next.js (App Router) + TypeScript full stack.
-- **Auth**: single-user email/password auth with hashed credentials and sessions.
+- **Auth**: single-user email/password auth with hashed credentials and sessions. *(Removed
+  post-Phase-10 — see the update note above.)*
 
 ---
 
@@ -138,15 +144,6 @@ enum GoalStatus      { NOT_STARTED IN_PROGRESS COMPLETED ABANDONED }
 enum NotificationType {
   NEW_MATCHING_JOB DEADLINE_APPROACHING FOLLOW_UP_DUE
   INTERVIEW_APPROACHING GOAL_DEADLINE SCRAPER_FAILING
-}
-
-model User {
-  id            String   @id @default(cuid())
-  email         String   @unique
-  passwordHash  String
-  name          String?
-  createdAt     DateTime @default(now())
-  // relations omitted for brevity — everything below scopes to this single user
 }
 
 model Company {
@@ -399,7 +396,6 @@ logic between UI mutations and HTTP endpoints):
 
 | Method & Path | Purpose |
 |---|---|
-| `POST /api/auth/*` | Handled by Auth.js |
 | `GET/POST /api/companies` | List (filter/search/paginate) & create companies |
 | `GET/PATCH/DELETE /api/companies/:id` | Read/update/delete a company |
 | `POST /api/companies/:id/logo/refresh` | Re-fetch logo from domain |
@@ -548,20 +544,16 @@ Layered, most-confident-first:
 
 ## 10. Security Considerations
 
-- **Auth**: Auth.js Credentials provider, `bcrypt` password hashing (cost 12), HTTP-only secure
-  session cookies, CSRF protection built into Auth.js's own endpoints and into Server Actions
-  (Next.js validates the `Origin` header on actions automatically).
-- **Authorization**: every query scoped to the authenticated session's user; even though there's
-  one user today, no query ever trusts a client-supplied user/owner ID.
+- **Auth**: none — this later became a purely local, single-person tool with no exposed network
+  surface, so login/sessions/CSRF were removed entirely rather than kept as unused complexity
+  (Auth.js, the `User` model, and the login page all deleted; see the update note in §1).
 - **Validation**: Zod schemas at every Server Action and route handler boundary; Prisma parameterizes
   all queries (no raw SQL string interpolation).
-- **Secrets**: `.env` (git-ignored) for `DATABASE_URL`, `NEXTAUTH_SECRET`, Redis URL, Claude API key
-  (for the extraction fallback); `.env.example` committed with placeholder keys; a CI/pre-commit
+- **Secrets**: `.env` (git-ignored) for `DATABASE_URL`, Redis URL, Claude API key (for the
+  extraction fallback); `.env.example` committed with placeholder keys; a CI/pre-commit
   secret-scan (e.g. `gitleaks`) is worth adding once this is under version control.
 - **SSRF**: as described in §8, applied uniformly to career-source URLs and job-import URLs.
-- **Rate limiting**: outbound (per-host scraping) as described above; inbound, a lightweight
-  in-memory limiter on auth and import endpoints to blunt credential-stuffing/brute-force even
-  though it's single-user.
+- **Rate limiting**: outbound (per-host scraping) as described above.
 - **Input sanitization**: scraped/imported HTML descriptions are sanitized (e.g. `sanitize-html`)
   before storage/render to prevent stored XSS from a malicious/compromised career page.
 - **Error handling**: no stack traces or internal errors ever reach the client response body;
@@ -607,7 +599,7 @@ Left sidebar navigation (collapsible), persistent across the app:
 | Integration | Vitest + a real Postgres test container | Prisma queries, unique-constraint behavior, service-layer functions end-to-end against the DB |
 | Adapter/parser | Vitest + fixture files (recorded real API/HTML responses) + MSW to mock HTTP | Each adapter tested against a "happy path" fixture and a "malformed/changed format" fixture |
 | API | Vitest calling route handlers directly (or Supertest against a test server) | Auth boundaries, validation errors, pagination correctness |
-| E2E | Playwright Test | Login → add company → manual scrape trigger → job appears in inbox → move to application → drag across Kanban stages → create project/goal and update progress → job-link import happy path and manual-fallback path |
+| E2E | Playwright Test | Landing page → add company → manual scrape trigger → job appears in inbox → move to application → drag across Kanban stages → create project/goal and update progress → job-link import happy path and manual-fallback path |
 
 Explicit edge cases from your spec, mapped to concrete tests:
 - Duplicate jobs across runs → adapter test asserts second run with identical fixture yields

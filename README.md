@@ -1,10 +1,10 @@
-# Career Command Center
+# Senior Me
 
 A personal career, project, and job-application command center. See [ARCHITECTURE.md](ARCHITECTURE.md)
 for the full system design, database schema, and phased implementation roadmap this project
 follows, and [DEPLOYMENT.md](DEPLOYMENT.md) for the optional cloud deployment path.
 
-**Status:** Phases 0–8 complete. Auth, database, base app shell, the web/worker process
+**Status:** Phases 0–8 complete. Database, base app shell, the web/worker process
 split, the company tracker (with a one-click "scrape now" that refreshes every active career
 page for a company directly from its card/row), career-page monitoring (Greenhouse/Lever/Ashby
 adapters plus generic JSON-LD/HTML-heuristic fallback tiers for custom sites, BullMQ scheduler
@@ -21,8 +21,8 @@ application deadlines, due follow-ups, upcoming interviews, goal deadlines, and 
 scraper failures, all dedup-aware so the same event never re-notifies) are all working
 end-to-end. **Phases 9 and 10 are also complete** — see [DEPLOYMENT.md](DEPLOYMENT.md) for the
 optional cloud path, including six real bugs in the (previously never-built) Docker images that
-were found and fixed by actually building and running them end-to-end (through a real login)
-rather than just writing the deployment steps against untested Dockerfiles. Phase 9 added a
+were found and fixed by actually building and running them end-to-end rather than just writing
+the deployment steps against untested Dockerfiles. Phase 9 added a
 global command palette (`⌘K`/`Ctrl+K`, search-to-jump across every page), keyboard-operable
 Kanban drag-and-drop, a WCAG-AA color contrast pass, a virtualized Inbox list (career-page
 pagination means the New tab routinely holds 100+ jobs — only the rows near the viewport are
@@ -30,11 +30,15 @@ ever mounted), a per-page browser tab title on every route, a skip-to-content li
 117-test unit/integration suite plus a 9-scenario Playwright E2E suite covering the flows in
 `ARCHITECTURE.md` §12 (see "Running tests"). All ten phases from `ARCHITECTURE.md` §14 are done.
 
+This app has no login and no `User` model — it's a single-person, local-only tool, and there
+was never anyone else it needed to authenticate against. The root `/` route is a simple landing
+page that links straight into `/dashboard`; every other route lives under `(app)` with the full
+sidebar/topbar chrome and no gate in front of it.
+
 ## Stack
 
 - **Web**: Next.js 16 (App Router) + TypeScript + Tailwind CSS v4
 - **Database**: PostgreSQL via Prisma (driver adapter: `@prisma/adapter-pg`)
-- **Auth**: Auth.js v5, single-user credentials login (JWT sessions)
 - **Worker**: standalone Node process running a BullMQ scheduler + queue consumer — kept
   separate from the web process from day one so career-page monitoring never depends on a
   serverless-friendly request lifecycle
@@ -61,28 +65,25 @@ pnpm install
 
 # 2. Copy the env template and fill in real values
 cp .env.example .env
-# Generate NEXTAUTH_SECRET with: openssl rand -base64 32
-# Set APP_USER_EMAIL / APP_USER_PASSWORD to the one account this app will ever have
 
 # 3. Start Postgres + Redis
 pnpm docker:up
 
-# 4. Generate the Prisma client, run the first migration, and seed your user
+# 4. Generate the Prisma client and run the first migration
 pnpm db:generate
 pnpm db:migrate
-pnpm db:seed
 
 # 5. Run the app (each in its own terminal)
 pnpm dev:web      # http://localhost:3000
 pnpm dev:worker   # runs the scheduler + scrape queue consumer
 ```
 
-Sign in with the `APP_USER_EMAIL` / `APP_USER_PASSWORD` you set in `.env`. From the Companies
-page, add a company with a career page URL, then use the refresh icon directly on its
-card/row ("scrape now") to trigger an immediate scrape of every active source it has — or
-open "Manage career pages" to refresh a single source, or just wait, since the scheduler
-checks every 5 minutes for any source whose 24h interval has elapsed. Manual triggers are
-throttled to once per 5 minutes per source.
+Open `http://localhost:3000` and hit Enter on the landing page to reach the dashboard — there's
+no login. From the Companies page, add a company with a career page URL, then use the refresh
+icon directly on its card/row ("scrape now") to trigger an immediate scrape of every active
+source it has — or open "Manage career pages" to refresh a single source, or just wait, since
+the scheduler checks every 5 minutes for any source whose 24h interval has elapsed. Manual
+triggers are throttled to once per 5 minutes per source.
 
 ## Environment variables
 
@@ -108,14 +109,15 @@ tables between tests via `apps/worker/src/test-helpers.ts`.
 
 ### E2E tests (Playwright)
 
-`apps/web/e2e` covers the flows in `ARCHITECTURE.md` §12: login → add a company → add a career
-source → trigger a scrape, a discovered job moving from Inbox through triage into the Pipeline,
-dragging a card across Kanban columns (verified to actually persist server-side, not just in
-optimistic client state), creating a project/goal and updating progress, and job-link import's
-manual-fallback path. Uses the same `ccc_test` database as the worker's integration tests (set
-that up first, per above) — a `global.setup.ts` project reseeds it with fixture data and signs
-in once, saving auth state for every other test to reuse. Runs the real app via `next dev` on
-a dedicated port (3100) so it doesn't collide with a `pnpm dev:web` you already have running —
+`apps/web/e2e` covers the flows in `ARCHITECTURE.md` §12: the landing page → add a company →
+add a career source → trigger a scrape, a discovered job moving from Inbox through triage into
+the Pipeline, dragging a card across Kanban columns (verified to actually persist server-side,
+not just in optimistic client state), creating a project/goal and updating progress, and
+job-link import's manual-fallback path. Uses the same `ccc_test` database as the worker's
+integration tests (set that up first, per above) — a `global-setup.ts` script reseeds it with
+fixture data before any spec runs (there's no login to establish, so that's all setup needs to
+do). Runs the real app via `next dev` on a dedicated port (3100) so it doesn't collide with a
+`pnpm dev:web` you already have running —
 Next.js's dev server refuses to start a second instance for the same project directory, so if
 you hit "Another next dev server is already running," that's `pnpm dev:web`, not a real
 conflict; stop it first (E2E doesn't need it, and the two use different databases anyway).
@@ -134,10 +136,10 @@ pnpm --filter @ccc/web test:e2e
 
 ```
 apps/
-  web/       Next.js app — UI, auth, dashboard, companies, career-page management
+  web/       Next.js app — UI, dashboard, companies, career-page management
   worker/    BullMQ scheduler + queue consumer for career-page monitoring
 packages/
-  db/        Prisma schema, migrations, seed script, shared PrismaClient instance
+  db/        Prisma schema, migrations, shared PrismaClient instance
   shared/    Zod schemas, types, and queue constants shared between web and worker
   scraper/   ATS adapters (Greenhouse/Lever/Ashby), SSRF-safe fetch, robots.txt checks
 ```

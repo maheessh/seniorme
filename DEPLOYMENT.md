@@ -6,13 +6,19 @@ in the app's design precludes it, and the `web`/`worker` process split exists sp
 `worker` can run as a long-lived service independent of `web`'s hosting choice.
 
 **What's actually verified here vs. what's standard guidance:** the containerized path (Docker
-images for `web` and `worker`, built and run end-to-end via `docker compose --profile full up`,
-including a real login through the full auth flow against the real database) was built, run, and
-fixed until it worked — see "What was actually broken" below. The specific instructions for
-Vercel/Railway/Neon/Upstash are standard, well-documented patterns for this stack, but weren't
-run against real accounts on those platforms (this environment doesn't have them) — treat that
-part as a correct starting point to verify against the platforms' current UI, not as something
-proven to work exactly as written.
+images for `web` and `worker`, built and run end-to-end via `docker compose --profile full up`
+against the real database) was built, run, and fixed until it worked — see "What was actually
+broken" below. The specific instructions for Vercel/Railway/Neon/Upstash are standard,
+well-documented patterns for this stack, but weren't run against real accounts on those platforms
+(this environment doesn't have them) — treat that part as a correct starting point to verify
+against the platforms' current UI, not as something proven to work exactly as written.
+
+> **Note:** the app's login (Auth.js, single-user credentials) was removed after this
+> verification pass — it's a purely local, single-person tool with no exposed surface, so there
+> was nothing left for a login to protect. Bug #6 below (the `trustHost` fix) no longer applies
+> since Auth.js itself is gone; it's kept here as part of the historical build record. The
+> `NEXTAUTH_*`/`APP_USER_*` env vars and the "sign in" verification step referenced further down
+> are likewise gone — see the updated env var table and "Verify" section.
 
 ## What was actually broken
 
@@ -98,12 +104,11 @@ below. After creating it:
 # CREATE EXTENSION IF NOT EXISTS "pg_trgm";
 
 DATABASE_URL="<your production connection string>" pnpm --filter @ccc/db exec prisma migrate deploy
-DATABASE_URL="<your production connection string>" APP_USER_EMAIL="you@example.com" APP_USER_PASSWORD="<a real, strong password>" pnpm --filter @ccc/db seed
 ```
 
-Run both once, from your local machine, before the app is live. `migrate deploy` (not `migrate
-dev`) is the non-interactive command meant for this — it applies pending migrations without
-prompting or generating new ones.
+Run once, from your local machine, before the app is live. `migrate deploy` (not `migrate dev`)
+is the non-interactive command meant for this — it applies pending migrations without prompting
+or generating new ones.
 
 ### 2. Managed Redis
 
@@ -117,13 +122,9 @@ only needs Redis to *enqueue* scrape jobs (Company/Career-source actions), not t
 |---|---|
 | `DATABASE_URL` | The managed Postgres connection string from step 1 |
 | `REDIS_URL` | The managed Redis connection string from step 2 |
-| `NEXTAUTH_URL` | The real production URL of `web` (e.g. `https://your-app.vercel.app`) — **web only** |
-| `NEXTAUTH_SECRET` | A fresh secret — `openssl rand -base64 32` — **do not reuse the local dev one** — **web only** |
-| `APP_USER_EMAIL` / `APP_USER_PASSWORD` | Only needed once, for the seed step above — not required at runtime by either process |
 | `ANTHROPIC_API_KEY` | Optional — enables the LLM-assisted job-link-import fallback tier — **web only** |
 
-`worker` only needs `DATABASE_URL` and `REDIS_URL` — it never handles auth or user-facing
-requests.
+`worker` only needs `DATABASE_URL` and `REDIS_URL`.
 
 ### 4. `web` on Vercel
 
@@ -147,7 +148,7 @@ traffic, it only consumes the BullMQ queue and runs the 5-minute scheduler tick.
 
 ### 6. Verify
 
-Sign in at the deployed `web` URL with the `APP_USER_EMAIL`/`APP_USER_PASSWORD` from the seed
-step, add a company with a career-page URL, and use "Scrape now" — if `worker` picks up the job
+Load the deployed `web` URL and confirm the landing page and dashboard render with real data,
+then add a company with a career-page URL and use "Scrape now" — if `worker` picks up the job
 and a `ScrapeRun` row appears (Company detail → career sources panel shows a check timestamp),
 the whole path is wired up correctly.

@@ -2,9 +2,8 @@ import path from "node:path";
 import { defineConfig, devices } from "@playwright/test";
 import { config as loadEnv } from "dotenv";
 
-// Reuses NEXTAUTH_SECRET and the app-user credentials from the root .env (harmless — the
-// database these tests run against is `ccc_test`, a completely separate database from the
-// `ccc` one used by day-to-day dev/prod, so there's no real-data collision risk).
+// Harmless to load — the database these tests run against is `ccc_test`, a completely separate
+// database from the `ccc` one used by day-to-day dev/prod, so there's no real-data collision risk.
 loadEnv({ path: path.resolve(__dirname, "../../.env") });
 
 const PORT = 3100;
@@ -12,6 +11,7 @@ const baseURL = `http://localhost:${PORT}`;
 
 export default defineConfig({
   testDir: "./e2e",
+  globalSetup: "./e2e/global-setup.ts",
   fullyParallel: false,
   workers: 1,
   retries: 0,
@@ -19,6 +19,7 @@ export default defineConfig({
   use: {
     baseURL,
     trace: "retain-on-failure",
+    ...devices["Desktop Chrome"],
   },
   webServer: {
     command: "npx next dev",
@@ -35,16 +36,7 @@ export default defineConfig({
       // activity fully isolated (confirmed live: this warning showed up in the real worker's
       // log before this fix).
       REDIS_URL: "redis://localhost:6379/1",
-      NEXTAUTH_URL: baseURL,
       PORT: String(PORT),
     },
   },
-  projects: [
-    { name: "setup", testMatch: /global\.setup\.ts/ },
-    {
-      name: "chromium",
-      use: { ...devices["Desktop Chrome"], storageState: "e2e/.auth/user.json" },
-      dependencies: ["setup"],
-    },
-  ],
 });

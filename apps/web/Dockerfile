@@ -21,7 +21,6 @@ COPY . .
 # constructs the Prisma client at import time, even though none of this app's routes are
 # statically pre-rendered at build time, so it's never actually queried during the build).
 ENV DATABASE_URL="postgresql://build:build@localhost:5432/build"
-ENV NEXTAUTH_SECRET="build-time-placeholder-not-used-at-runtime"
 RUN pnpm --filter @ccc/db generate
 RUN pnpm --filter @ccc/web build
 

@@ -1,4 +1,3 @@
-import { hash } from "bcryptjs";
 import { prisma } from "@ccc/db";
 
 // Truncates and reseeds the ccc_test database with deterministic fixture data for the E2E
@@ -23,20 +22,10 @@ const TABLES = [
   "ScrapeRun",
   "CareerSource",
   "Company",
-  "User",
 ];
 
 async function main() {
-  const email = process.env.APP_USER_EMAIL;
-  const password = process.env.APP_USER_PASSWORD;
-  if (!email || !password) {
-    throw new Error("APP_USER_EMAIL and APP_USER_PASSWORD must be set to seed the E2E test user.");
-  }
-
   await prisma.$executeRawUnsafe(`TRUNCATE TABLE ${TABLES.map((t) => `"${t}"`).join(", ")} CASCADE;`);
-
-  const passwordHash = await hash(password, 12);
-  await prisma.user.create({ data: { email, passwordHash } });
 
   const company = await prisma.company.create({
     data: { name: "Acme Corp", priority: "HIGH", monitoringEnabled: true },

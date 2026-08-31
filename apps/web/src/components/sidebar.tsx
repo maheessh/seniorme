@@ -11,10 +11,10 @@ export function Sidebar({ unreadNotificationCount = 0 }: { unreadNotificationCou
   return (
     <nav className="flex h-full w-60 shrink-0 flex-col gap-1 border-r border-border p-4">
       <div className="mb-4 px-2">
-        <span className="font-display text-lg">Command Center</span>
+        <span className="font-display text-lg">Senior Me</span>
       </div>
       {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
-        const isActive = href === "/" ? pathname === "/" : pathname.startsWith(href);
+        const isActive = pathname.startsWith(href);
         const badgeCount = href === "/notifications" ? unreadNotificationCount : 0;
         return (
           <Link

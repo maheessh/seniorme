@@ -88,7 +88,7 @@ export function CommandPalette() {
           >
             <DialogPrimitive.Title className="sr-only">Command palette</DialogPrimitive.Title>
             <DialogPrimitive.Description className="sr-only">
-              Search and jump to any page in Command Center.
+              Search and jump to any page in Senior Me.
             </DialogPrimitive.Description>
             <div className="flex items-center gap-2.5 border-b border-border px-4 py-3">
               <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
