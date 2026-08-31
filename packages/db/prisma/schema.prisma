@@ -231,6 +231,7 @@ model Application {
 
   @@index([stage])
   @@index([deadline])
+  @@index([followUpDate])
 }
 
 model ApplicationEvent {
@@ -244,6 +245,7 @@ model ApplicationEvent {
   occurredAt    DateTime          @default(now())
 
   @@index([applicationId, occurredAt])
+  @@index([scheduledAt])
 }
 
 model Contact {
@@ -302,6 +304,8 @@ model Goal {
   milestones GoalMilestone[]
   createdAt  DateTime        @default(now())
   updatedAt  DateTime        @updatedAt
+
+  @@index([deadline])
 }
 
 model GoalMilestone {
@@ -329,13 +333,20 @@ model ActivityEvent {
 }
 
 model Notification {
-  id        String           @id @default(cuid())
-  type      NotificationType
-  title     String
-  body      String?
-  linkUrl   String?
-  isRead    Boolean          @default(false)
-  createdAt DateTime         @default(now())
+  id         String           @id @default(cuid())
+  type       NotificationType
+  title      String
+  body       String?
+  linkUrl    String?
+  entityType String?
+  entityId   String?
+  /// Stable key (e.g. "deadline:{applicationId}:{date}") used to avoid re-notifying for the
+  /// same underlying event on every periodic check. Null for one-off notifications that don't
+  /// need dedup (e.g. a specific scrape run's "N new jobs found").
+  dedupeKey  String?          @unique
+  isRead     Boolean          @default(false)
+  createdAt  DateTime         @default(now())
 
   @@index([isRead, createdAt])
+  @@index([entityType, entityId])
 }

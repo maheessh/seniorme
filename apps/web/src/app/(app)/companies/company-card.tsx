@@ -7,6 +7,7 @@ import type { CompanyWithSources } from "@/lib/server/services/companies";
 import { CareerSourcesPanel } from "./career-sources-panel";
 import { CompanyFormDialog } from "./company-form-dialog";
 import { DeleteCompanyButton } from "./delete-company-button";
+import { ScrapeCompanyButton } from "./scrape-company-button";
 
 const PRIORITY_VARIANT = { LOW: "default", MEDIUM: "primary", HIGH: "warning" } as const;
 
@@ -24,6 +25,7 @@ export function CompanyCard({ company }: { company: CompanyWithSources }) {
           </div>
         </div>
         <div className="flex shrink-0 gap-0.5">
+          <ScrapeCompanyButton companyId={company.id} hasSources={company.careerSources.some((s) => s.isActive)} />
           <CareerSourcesPanel
             companyId={company.id}
             companyName={company.name}

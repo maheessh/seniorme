@@ -6,6 +6,7 @@ import type { CompanyWithSources } from "@/lib/server/services/companies";
 import { CareerSourcesPanel } from "./career-sources-panel";
 import { CompanyFormDialog } from "./company-form-dialog";
 import { DeleteCompanyButton } from "./delete-company-button";
+import { ScrapeCompanyButton } from "./scrape-company-button";
 
 const PRIORITY_VARIANT = { LOW: "default", MEDIUM: "primary", HIGH: "warning" } as const;
 
@@ -42,6 +43,10 @@ export function CompanyTable({ companies }: { companies: CompanyWithSources[] })
               </td>
               <td className="px-4 py-2.5">
                 <div className="flex justify-end gap-0.5">
+                  <ScrapeCompanyButton
+                    companyId={company.id}
+                    hasSources={company.careerSources.some((s) => s.isActive)}
+                  />
                   <CareerSourcesPanel
                     companyId={company.id}
                     companyName={company.name}

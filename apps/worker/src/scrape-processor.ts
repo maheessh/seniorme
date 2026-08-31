@@ -9,6 +9,7 @@ import {
   type RawJobPosting,
 } from "@ccc/scraper";
 import { logger } from "./logger";
+import { dispatchNotification } from "./notifications/channels";
 
 const CONSECUTIVE_FAILURE_NOTIFY_THRESHOLD = 5;
 
@@ -82,13 +83,14 @@ export async function processScrapeSource(
     });
 
     if (jobsNew > 0) {
-      await prisma.notification.create({
-        data: {
-          type: "NEW_MATCHING_JOB",
-          title: `${jobsNew} new job${jobsNew === 1 ? "" : "s"} at ${source.company.name}`,
-          body: `Found ${jobsNew} new posting${jobsNew === 1 ? "" : "s"} while checking ${source.url}.`,
-          linkUrl: "/inbox",
-        },
+      await dispatchNotification({
+        type: "NEW_MATCHING_JOB",
+        title: `${jobsNew} new job${jobsNew === 1 ? "" : "s"} at ${source.company.name}`,
+        body: `Found ${jobsNew} new posting${jobsNew === 1 ? "" : "s"} while checking ${source.url}.`,
+        linkUrl: "/inbox",
+        entityType: "careerSource",
+        entityId: source.id,
+        dedupeKey: `new-jobs:${source.id}:${startedAt.toISOString()}`,
       });
     }
   } catch (error) {
@@ -123,13 +125,14 @@ export async function processScrapeSource(
   ]);
 
   if (errorMessage && consecutiveFailures === CONSECUTIVE_FAILURE_NOTIFY_THRESHOLD) {
-    await prisma.notification.create({
-      data: {
-        type: "SCRAPER_FAILING",
-        title: `Career-page monitoring failing for ${source.company.name}`,
-        body: `${consecutiveFailures} consecutive failed checks. Last error: ${errorMessage}`,
-        linkUrl: "/companies",
-      },
+    await dispatchNotification({
+      type: "SCRAPER_FAILING",
+      title: `Career-page monitoring failing for ${source.company.name}`,
+      body: `${consecutiveFailures} consecutive failed checks. Last error: ${errorMessage}`,
+      linkUrl: "/companies",
+      entityType: "careerSource",
+      entityId: source.id,
+      dedupeKey: `scraper-failing:${source.id}:${consecutiveFailures}`,
     });
   }
 

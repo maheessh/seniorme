@@ -28,11 +28,24 @@ export async function enqueueDueSources(): Promise<void> {
   });
 
   for (const source of due) {
+    const jobId = `scrape-${source.id}`;
+
+    // See the matching comment in apps/web's career-sources.ts enqueue(): add() dedupes by
+    // jobId, which is desired while a scrape is still in flight, but is a silent no-op once
+    // that job has completed/failed — remove it first so the next scheduled check actually runs.
+    const existing = await scrapeQueue.getJob(jobId);
+    if (existing) {
+      const state = await existing.getState();
+      if (state === "completed" || state === "failed") {
+        await existing.remove();
+      }
+    }
+
     await scrapeQueue.add(
       "scrape-career-source",
       { careerSourceId: source.id, triggeredBy: "scheduler" } satisfies ScrapeJobData,
       {
-        jobId: `scrape-${source.id}`,
+        jobId,
         removeOnComplete: 200,
         removeOnFail: 200,
         attempts: 3,

@@ -2,6 +2,7 @@ import type { ScrapeJobData } from "@ccc/shared";
 import { SCRAPE_QUEUE_NAME } from "@ccc/shared";
 import { Worker, type Job } from "bullmq";
 import { logger } from "./logger";
+import { runNotificationChecks } from "./notification-checks";
 import { connection } from "./redis";
 import { enqueueDueSources } from "./scheduler";
 import { processScrapeSource } from "./scrape-processor";
@@ -12,6 +13,7 @@ export function startWorker(): Worker {
     async (job: Job) => {
       if (job.name === "scheduler-tick") {
         await enqueueDueSources();
+        await runNotificationChecks();
         return;
       }
       if (job.name === "scrape-career-source") {

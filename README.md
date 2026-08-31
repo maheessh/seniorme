@@ -3,19 +3,22 @@
 A personal career, project, and job-application command center. See [ARCHITECTURE.md](ARCHITECTURE.md)
 for the full system design, database schema, and phased implementation roadmap this project follows.
 
-**Status:** Phases 0–7 complete. Auth, database, base app shell, the web/worker process
-split, the company tracker, career-page monitoring (Greenhouse/Lever/Ashby adapters plus
-generic JSON-LD/HTML-heuristic fallback tiers for custom sites, BullMQ scheduler + worker,
-manual refresh, SSRF/robots.txt-safe fetching including `Crawl-delay`), the job discovery
-inbox (keyboard-driven triage, fuzzy-duplicate flagging, activity logging), the application
-pipeline (drag-and-drop Kanban + table views, stage history, contacts, deadlines, notes),
-job-link import (tiered extraction with company dedup and a manual-entry fallback),
-projects/goals (task/milestone checklists, quick-increment progress, dashboard widgets), and
+**Status:** Phases 0–8 complete. Auth, database, base app shell, the web/worker process
+split, the company tracker (with a one-click "scrape now" that refreshes every active career
+page for a company directly from its card/row), career-page monitoring (Greenhouse/Lever/Ashby
+adapters plus generic JSON-LD/HTML-heuristic fallback tiers for custom sites, BullMQ scheduler
++ worker, manual refresh, SSRF/robots.txt-safe fetching including `Crawl-delay`), the job
+discovery inbox (keyboard-driven triage, fuzzy-duplicate flagging, activity logging), the
+application pipeline (drag-and-drop Kanban + table views, stage history, contacts, deadlines,
+notes), job-link import (tiered extraction with company dedup and a manual-entry fallback),
+projects/goals (task/milestone checklists, quick-increment progress, dashboard widgets),
 analytics (funnel conversion rates, applications-per-week trend, pipeline-by-stage and
 most-active-companies breakdowns, average time per stage, goal/project completion — all
-computed from real Prisma aggregations, no dummy data) are all working end-to-end. Remaining
-feature phases (notifications) build on top of this incrementally — see `ARCHITECTURE.md`
-§14 for the roadmap.
+computed from real Prisma aggregations, no dummy data), and notifications (in-app notification
+center with an unread badge in the sidebar; triggers for new matching jobs, approaching
+application deadlines, due follow-ups, upcoming interviews, goal deadlines, and repeated
+scraper failures, all dedup-aware so the same event never re-notifies) are all working
+end-to-end. See `ARCHITECTURE.md` §14 for the full roadmap (hardening/tests and docs remain).
 
 ## Stack
 
@@ -64,9 +67,11 @@ pnpm dev:worker   # runs the scheduler + scrape queue consumer
 ```
 
 Sign in with the `APP_USER_EMAIL` / `APP_USER_PASSWORD` you set in `.env`. From the Companies
-page, add a company with a Greenhouse/Lever/Ashby career page URL and use "Refresh now" to
-trigger an immediate scrape, or just wait — the scheduler checks every 5 minutes for any
-source whose 24h interval has elapsed.
+page, add a company with a career page URL, then use the refresh icon directly on its
+card/row ("scrape now") to trigger an immediate scrape of every active source it has — or
+open "Manage career pages" to refresh a single source, or just wait, since the scheduler
+checks every 5 minutes for any source whose 24h interval has elapsed. Manual triggers are
+throttled to once per 5 minutes per source.
 
 ## Environment variables
 
@@ -98,9 +103,15 @@ packages/
 
 ## Known limitations
 
-- Companies (Phase 1) through analytics (Phase 7) all have full functionality; notifications
-  do not yet — that page is an intentionally simple placeholder that names the phase it
-  arrives in.
+- Companies (Phase 1) through notifications (Phase 8) all have full functionality; hardening
+  (automated tests, accessibility pass, command palette) and deployment docs (Phases 9–10)
+  remain.
+- "Scrape now" always re-fetches a source's full listing — none of the supported ATS/HTML
+  sources expose a "changes since" endpoint, so there's no partial/incremental fetch mode to
+  configure. What it does skip is redundant *work*: postings that already exist (by canonical
+  URL or external ID) are matched and left alone rather than re-created, so a re-scrape only
+  surfaces genuinely new or changed postings — see `upsertJobPosting` in
+  `apps/worker/src/scrape-processor.ts`.
 - Job-link import's Claude-assisted extraction tier only runs when `ANTHROPIC_API_KEY` is set
   in `.env` — without it, extraction still works via the ATS-API/JSON-LD/OpenGraph tiers, just
   with a weaker fallback for sites that use none of those (verified end-to-end against a

@@ -25,7 +25,7 @@ const NAV_ITEMS = [
   { href: "/notifications", label: "Notifications", icon: Bell },
 ];
 
-export function Sidebar() {
+export function Sidebar({ unreadNotificationCount = 0 }: { unreadNotificationCount?: number }) {
   const pathname = usePathname();
 
   return (
@@ -35,6 +35,7 @@ export function Sidebar() {
       </div>
       {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
         const isActive = href === "/" ? pathname === "/" : pathname.startsWith(href);
+        const badgeCount = href === "/notifications" ? unreadNotificationCount : 0;
         return (
           <Link
             key={href}
@@ -47,7 +48,17 @@ export function Sidebar() {
             )}
           >
             <Icon className="h-4 w-4" />
-            {label}
+            <span className="flex-1">{label}</span>
+            {badgeCount > 0 ? (
+              <span
+                className={cn(
+                  "flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-xs font-medium",
+                  isActive ? "bg-primary-foreground/20 text-primary-foreground" : "bg-primary text-primary-foreground",
+                )}
+              >
+                {badgeCount > 99 ? "99+" : badgeCount}
+              </span>
+            ) : null}
           </Link>
         );
       })}

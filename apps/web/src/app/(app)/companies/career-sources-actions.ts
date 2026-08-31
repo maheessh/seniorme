@@ -6,6 +6,7 @@ import {
   addCareerSource,
   deleteCareerSource,
   setCareerSourceActive,
+  triggerCompanyScrape,
   triggerScrape,
   TriggerTooSoonError,
 } from "@/lib/server/services/career-sources";
@@ -60,4 +61,20 @@ export async function triggerScrapeAction(id: string): Promise<{ error?: string 
 
   revalidatePath("/companies");
   return {};
+}
+
+export async function triggerCompanyScrapeAction(companyId: string): Promise<{ error?: string; message?: string }> {
+  const { queued, skipped } = await triggerCompanyScrape(companyId);
+
+  if (queued === 0 && skipped === 0) {
+    return { error: "No active career pages to scrape — add one first." };
+  }
+  if (queued === 0) {
+    return { error: "All career pages were checked recently — try again shortly." };
+  }
+
+  revalidatePath("/companies");
+  return {
+    message: `Scraping ${queued} career page${queued === 1 ? "" : "s"}…${skipped > 0 ? ` (${skipped} skipped, checked recently)` : ""}`,
+  };
 }
