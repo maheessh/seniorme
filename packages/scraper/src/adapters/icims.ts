@@ -7,7 +7,7 @@ import { findNextPageUrl } from "./generic";
 
 const MAX_PAGES = 25;
 
-type JobImpression = {
+export type JobImpression = {
   idRaw: number;
   title: string;
   positionType?: string | null;
@@ -24,7 +24,7 @@ type JobImpression = {
  * hrefs on the same page (both carry the same numeric id) to get a real URL rather than
  * constructing one from a guessed slug format.
  */
-function extractJobImpressions(html: string): JobImpression[] {
+export function extractJobImpressions(html: string): JobImpression[] {
   const match = html.match(/var\s+jobImpressions\s*=\s*(\[[\s\S]*?\]);/);
   if (!match) return [];
   try {
@@ -34,7 +34,7 @@ function extractJobImpressions(html: string): JobImpression[] {
   }
 }
 
-function extractDetailUrlsById(html: string, baseUrl: string): Map<number, string> {
+export function extractDetailUrlsById(html: string, baseUrl: string): Map<number, string> {
   const $ = cheerio.load(html);
   const base = new URL(baseUrl);
   const byId = new Map<number, string>();
@@ -55,7 +55,7 @@ function extractDetailUrlsById(html: string, baseUrl: string): Map<number, strin
   return byId;
 }
 
-function mapImpression(impression: JobImpression, url: string): RawJobPosting {
+export function mapImpression(impression: JobImpression, url: string): RawJobPosting {
   const location = impression.location
     ? [impression.location.city, impression.location.state].filter(Boolean).join(", ")
     : null;

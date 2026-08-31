@@ -4,6 +4,9 @@
   "private": true,
   "main": "src/index.ts",
   "types": "src/index.ts",
+  "scripts": {
+    "test": "vitest run"
+  },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.122.0",
     "@ccc/db": "workspace:*",
@@ -12,6 +15,7 @@
   },
   "devDependencies": {
     "@types/node": "^26.4.0",
-    "typescript": "^7.0.2"
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.11"
   }
 }

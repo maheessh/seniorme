@@ -40,21 +40,51 @@ function isPrivateIPv4(ip: string): boolean {
   return false;
 }
 
+/** Expands "a::b" shorthand to the full 8-group form so a mapped-IPv4 suffix can be read
+ * positionally — Node's URL parser normalizes an embedded IPv4 (e.g. "::ffff:127.0.0.1") into
+ * two hex groups ("::ffff:7f00:1"), so the address reaching this function may already be in
+ * either form. */
+function expandIPv6Groups(ip: string): string[] {
+  const [head, tail] = ip.includes("::") ? ip.split("::") : [ip, undefined];
+  const headGroups = head ? head.split(":").filter(Boolean) : [];
+  const tailGroups = tail ? tail.split(":").filter(Boolean) : [];
+  const missing = 8 - headGroups.length - tailGroups.length;
+  return [...headGroups, ...Array(Math.max(missing, 0)).fill("0"), ...tailGroups];
+}
+
 function isPrivateIPv6(ip: string): boolean {
   const lower = ip.toLowerCase();
   if (lower === "::1" || lower === "::") return true;
   if (lower.startsWith("fc") || lower.startsWith("fd")) return true; // unique local, fc00::/7
   if (/^fe[89ab]/.test(lower)) return true; // link-local, fe80::/10
+
+  // IPv4-mapped IPv6 (::ffff:a.b.c.d) — check both the dotted-decimal form and the two-hex-group
+  // form the URL parser normalizes it to.
   if (lower.startsWith("::ffff:")) {
     const embedded = lower.slice("::ffff:".length);
     if (net.isIPv4(embedded)) return isPrivateIPv4(embedded);
   }
+  const groups = expandIPv6Groups(lower);
+  if (groups.length === 8 && groups.slice(0, 5).every((g) => g === "0") && groups[5] === "ffff") {
+    const high = Number.parseInt(groups[6], 16);
+    const low = Number.parseInt(groups[7], 16);
+    if (Number.isFinite(high) && Number.isFinite(low)) {
+      const embedded = [(high >> 8) & 0xff, high & 0xff, (low >> 8) & 0xff, low & 0xff].join(".");
+      return isPrivateIPv4(embedded);
+    }
+  }
+
   return false;
 }
 
 async function assertPublicHost(hostname: string): Promise<void> {
-  if (net.isIP(hostname)) {
-    const blocked = net.isIPv4(hostname) ? isPrivateIPv4(hostname) : isPrivateIPv6(hostname);
+  // URL.hostname keeps the brackets around an IPv6 literal (e.g. "[::1]"), but net.isIP()
+  // only recognizes the bare address — left unstripped, every IPv6-literal host falls through
+  // to the dns.lookup() branch below, which just throws ENOTFOUND on the bracketed string
+  // instead of ever reaching the intended isPrivateIPv6 check.
+  const bareHost = hostname.replace(/^\[|\]$/g, "");
+  if (net.isIP(bareHost)) {
+    const blocked = net.isIPv4(bareHost) ? isPrivateIPv4(bareHost) : isPrivateIPv6(bareHost);
     if (blocked) throw new SsrfBlockedError(hostname);
     return;
   }

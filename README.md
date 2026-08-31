@@ -100,13 +100,21 @@ packages/
 | `pnpm db:studio` | Open Prisma Studio against the local database |
 | `pnpm build` | Production build of db client, web, and worker |
 | `pnpm lint` | Lint all workspaces |
+| `pnpm test` | Run the test suite (currently `packages/scraper`'s Vitest unit tests) |
 | `docker compose --profile full up` | Run the full 4-service topology (web+worker+postgres+redis) in containers, matching the eventual deployment shape |
 
 ## Known limitations
 
-- Companies (Phase 1) through notifications (Phase 8) all have full functionality; hardening
-  (automated tests, accessibility pass, command palette) and deployment docs (Phases 9–10)
-  remain.
+- Companies (Phase 1) through notifications (Phase 8) all have full functionality. Phase 9
+  (hardening) is in progress: `packages/scraper` has an 86-test Vitest suite covering URL/content
+  normalization, ATS-type detection, both JSON-LD extraction paths, the generic HTML-link
+  heuristic (including its "not enough real matches" and "self-referential/off-host link" guard
+  rails), `rel="next"` pagination, the iCIMS adapter's parsing, and the SSRF guard's IP-blocking
+  logic — writing that last suite caught two real bugs (IPv6-literal blocking was silently
+  unreachable due to how `URL.hostname` brackets IPv6 addresses, and an IPv4-mapped IPv6 address
+  in its URL-normalized hex form slipped past the private-IP check), both fixed and now
+  regression-tested. Integration/E2E tests, an accessibility pass, and a command palette are not
+  built yet; deployment docs (Phase 10) remain.
 - "Scrape now" always re-fetches a source's full listing — none of the supported ATS/HTML
   sources expose a "changes since" endpoint, so there's no partial/incremental fetch mode to
   configure. What it does skip is redundant *work*: postings that already exist (by canonical
@@ -145,6 +153,8 @@ packages/
 - Fuzzy-duplicate detection (pg_trgm title similarity) flags a possible repost for review in
   the Inbox but never auto-merges — dismissing the flag just clears it, it doesn't teach the
   matcher anything.
-- No automated test suite yet — the test strategy is defined in `ARCHITECTURE.md` §12; the
-  scraper/dedup/failure-path/fuzzy-match logic has been manually verified end-to-end against
-  live boards during development (see commit history) but isn't covered by CI-run tests yet.
+- Automated coverage is unit-level only so far (`packages/scraper`, see above) — the full test
+  strategy across all five layers is defined in `ARCHITECTURE.md` §12. The web/worker
+  service-layer logic (dedup upserts, stage transitions, notification dedup) and the fuzzy-match
+  tier have been manually verified end-to-end against live boards during development (see commit
+  history) but aren't covered by CI-run tests yet.
