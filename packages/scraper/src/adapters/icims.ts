@@ -114,6 +114,8 @@ export const icimsAdapter: CareerSiteAdapter = {
       currentUrl = findNextPageUrl(html, currentUrl);
     }
 
-    return { postings };
+    // currentUrl is only null here because findNextPageUrl said there's no next page — see the
+    // equivalent comment in fetchGenericBoardWithPagination for the failure/MAX_PAGES cases.
+    return { postings, complete: currentUrl === null };
   },
 };

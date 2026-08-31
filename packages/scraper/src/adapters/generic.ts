@@ -84,7 +84,11 @@ function fromHtmlHeuristic(html: string, baseUrl: string): RawJobPosting[] {
   }));
 }
 
-export type GenericBoardResult = { postings: RawJobPosting[]; resolvedType: SourceType };
+export type GenericPageResult = { postings: RawJobPosting[]; resolvedType: SourceType };
+export type GenericBoardResult = GenericPageResult & {
+  /** False if pagination stopped early instead of reaching a natural end — see AdapterFetchResult. */
+  complete: boolean;
+};
 
 /**
  * Fallback tiers for career pages that aren't on a known ATS: first schema.org JobPosting
@@ -94,7 +98,7 @@ export type GenericBoardResult = { postings: RawJobPosting[]; resolvedType: Sour
  * links). Returns null if neither finds anything — most often because the page is rendered
  * client-side and has no extractable server-rendered content at all.
  */
-export function extractGenericBoardPostings(html: string, baseUrl: string): GenericBoardResult | null {
+export function extractGenericBoardPostings(html: string, baseUrl: string): GenericPageResult | null {
   const jsonLdPostings = fromJsonLd(html, baseUrl);
   if (jsonLdPostings.length > 0) {
     return { postings: jsonLdPostings, resolvedType: "CUSTOM_JSONLD" };
@@ -178,5 +182,8 @@ export async function fetchGenericBoardWithPagination(sourceUrl: string): Promis
   }
 
   if (!resolvedType) return null;
-  return { postings, resolvedType };
+  // currentUrl is only null here because findNextPageUrl said there's no next page — a genuine
+  // end of the listing. Any other exit (a later-page fetch/extraction failure, or hitting
+  // MAX_PAGES) leaves it non-null, meaning postings may be missing pages that are still live.
+  return { postings, resolvedType, complete: currentUrl === null };
 }

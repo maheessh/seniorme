@@ -13,6 +13,14 @@ export type RawJobPosting = {
 
 export type AdapterFetchResult = {
   postings: RawJobPosting[];
+  /**
+   * False when a paginated fetch stopped early (a later page failed, was blocked, or the page
+   * cap was hit) instead of reaching a natural end. Callers must not treat `postings` as the
+   * full current listing when this is false — in particular, it must not be used to infer that
+   * an existing job absent from `postings` has been removed from the source. Omitted/undefined
+   * means true (single-request adapters can't return a partial result).
+   */
+  complete?: boolean;
 };
 
 export interface CareerSiteAdapter {

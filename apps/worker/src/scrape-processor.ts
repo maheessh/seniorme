@@ -38,11 +38,14 @@ export async function processScrapeSource(
     }
 
     let postings: RawJobPosting[];
+    let complete: boolean;
 
     const adapter = resolveAdapter(source.url);
     if (adapter) {
       resolvedType = adapter.type;
-      ({ postings } = await adapter.fetchPostings(source.url));
+      const result = await adapter.fetchPostings(source.url);
+      postings = result.postings;
+      complete = result.complete ?? true;
     } else {
       // No known-ATS adapter matches this URL — fall back to generic tiers: JSON-LD embedded
       // on the listing page, then a conservative HTML-link heuristic, following `rel="next"`
@@ -59,6 +62,7 @@ export async function processScrapeSource(
       }
       resolvedType = generic.resolvedType;
       postings = generic.postings;
+      complete = generic.complete;
     }
 
     jobsFound = postings.length;
@@ -72,14 +76,25 @@ export async function processScrapeSource(
       jobsNew += await upsertJobPosting(source.id, source.companyId, source.company.name, posting);
     }
 
-    await prisma.job.updateMany({
-      where: {
-        careerSourceId: source.id,
-        isRemoved: false,
-        externalJobId: { notIn: deduped.map((posting) => posting.externalJobId) },
-      },
-      data: { isRemoved: true },
-    });
+    // Only trust this run's postings as the *complete* current listing when pagination reached
+    // a natural end — otherwise a transient later-page failure would wrongly mark still-live
+    // postings (on pages this run didn't reach) as removed, since they're absent from `deduped`
+    // for a reason that has nothing to do with whether they're still posted.
+    if (complete) {
+      await prisma.job.updateMany({
+        where: {
+          careerSourceId: source.id,
+          isRemoved: false,
+          externalJobId: { notIn: deduped.map((posting) => posting.externalJobId) },
+        },
+        data: { isRemoved: true },
+      });
+    } else {
+      logger.warn(
+        { careerSourceId },
+        "Scrape returned a partial listing (pagination stopped early) — skipping removal detection this run",
+      );
+    }
 
     if (jobsNew > 0) {
       await dispatchNotification({
