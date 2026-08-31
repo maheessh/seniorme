@@ -1,0 +1,105 @@
+import { prisma, Prisma, type Priority } from "@ccc/db";
+import type { CompanyInput } from "@ccc/shared";
+
+export class DuplicateDomainError extends Error {
+  constructor(domain: string) {
+    super(`A company with domain "${domain}" is already tracked.`);
+    this.name = "DuplicateDomainError";
+  }
+}
+
+function deriveLogoUrl(domain: string | undefined): string | null {
+  // DuckDuckGo's icon service resolves a real favicon/logo for a bare domain with no API
+  // key and no rate limiting for personal use — more reliable than Clearbit's now-defunct
+  // free logo API.
+  return domain ? `https://icons.duckduckgo.com/ip3/${domain}.ico` : null;
+}
+
+export type CompanyFilters = {
+  search?: string;
+  priority?: Priority;
+};
+
+export function listCompanies(filters: CompanyFilters = {}) {
+  return prisma.company.findMany({
+    where: {
+      ...(filters.priority ? { priority: filters.priority } : {}),
+      ...(filters.search
+        ? {
+            OR: [
+              { name: { contains: filters.search, mode: "insensitive" } },
+              { domain: { contains: filters.search, mode: "insensitive" } },
+              { industry: { contains: filters.search, mode: "insensitive" } },
+            ],
+          }
+        : {}),
+    },
+    orderBy: [{ priority: "desc" }, { name: "asc" }],
+  });
+}
+
+export function getCompany(id: string) {
+  return prisma.company.findUnique({ where: { id } });
+}
+
+async function handleUniqueConstraint<T>(fn: () => Promise<T>, domain: string | undefined) {
+  try {
+    return await fn();
+  } catch (error) {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2002" &&
+      domain
+    ) {
+      throw new DuplicateDomainError(domain);
+    }
+    throw error;
+  }
+}
+
+export function createCompany(input: CompanyInput) {
+  return handleUniqueConstraint(
+    () =>
+      prisma.company.create({
+        data: {
+          name: input.name,
+          domain: input.domain ?? null,
+          logoUrl: deriveLogoUrl(input.domain),
+          website: input.website ?? null,
+          location: input.location ?? null,
+          industry: input.industry ?? null,
+          priority: input.priority,
+          notes: input.notes ?? null,
+          rolesOfInterest: input.rolesOfInterest,
+          monitoringEnabled: input.monitoringEnabled,
+        },
+      }),
+    input.domain,
+  );
+}
+
+export function updateCompany(id: string, input: CompanyInput) {
+  return handleUniqueConstraint(
+    () =>
+      prisma.company.update({
+        where: { id },
+        data: {
+          name: input.name,
+          domain: input.domain ?? null,
+          logoUrl: deriveLogoUrl(input.domain),
+          website: input.website ?? null,
+          location: input.location ?? null,
+          industry: input.industry ?? null,
+          priority: input.priority,
+          notes: input.notes ?? null,
+          rolesOfInterest: input.rolesOfInterest,
+          monitoringEnabled: input.monitoringEnabled,
+        },
+      }),
+    input.domain,
+  );
+}
+
+export function deleteCompany(id: string) {
+  return prisma.company.delete({ where: { id } });
+}

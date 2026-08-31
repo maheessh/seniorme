@@ -3,9 +3,11 @@
 A personal career, project, and job-application command center. See [ARCHITECTURE.md](ARCHITECTURE.md)
 for the full system design, database schema, and phased implementation roadmap this project follows.
 
-**Status:** Phase 0 (foundation) complete — auth, database, base app shell, and the
-web/worker process split are in place. Feature phases (companies, career-page monitoring,
-inbox, pipeline, etc.) build on top of this incrementally.
+**Status:** Phase 0 (foundation) and Phase 1 (companies) complete. Auth, database, base app
+shell, and the web/worker process split are in place, and the company tracker (CRUD,
+domain-based logo lookup, card/table views, search/filter) is fully working end-to-end.
+Remaining feature phases (career-page monitoring, inbox, pipeline, etc.) build on top of this
+incrementally — see `ARCHITECTURE.md` §14 for the roadmap.
 
 ## Stack
 
@@ -77,11 +79,12 @@ packages/
 | `pnpm lint` | Lint all workspaces |
 | `docker compose --profile full up` | Run the full 4-service topology (web+worker+postgres+redis) in containers, matching the eventual deployment shape |
 
-## Known limitations (Phase 0)
+## Known limitations
 
-- No feature CRUD yet (companies, jobs, applications, projects, goals) — those pages are
-  intentionally simple placeholders that name the phase they arrive in. The dashboard already
-  queries real (currently empty) tables, so the full stack is proven end-to-end.
+- Companies (Phase 1) have full CRUD; jobs, applications, projects, and goals do not yet —
+  those pages are intentionally simple placeholders that name the phase they arrive in.
+- Company logos are derived automatically from the domain (via DuckDuckGo's icon service) at
+  create/update time — there's no manual upload path, by design.
 - The worker process only verifies Postgres/Redis connectivity — the BullMQ scheduler and
   scraping adapters land in Phase 2.
 - No automated tests yet — the test strategy is defined in `ARCHITECTURE.md` §12 and gets
