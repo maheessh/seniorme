@@ -1,11 +1,10 @@
 import { Prisma, prisma } from "@ccc/db";
 import {
-  extractGenericBoardPostings,
+  fetchGenericBoardWithPagination,
   hashContent,
   hashUrl,
   isAllowedByRobots,
   resolveAdapter,
-  safeFetchText,
   type RawJobPosting,
 } from "@ccc/scraper";
 import { logger } from "./logger";
@@ -46,10 +45,10 @@ export async function processScrapeSource(
       ({ postings } = await adapter.fetchPostings(source.url));
     } else {
       // No known-ATS adapter matches this URL — fall back to generic tiers: JSON-LD embedded
-      // on the listing page, then a conservative HTML-link heuristic. Both operate on the
-      // same fetched HTML, so this is one request, not two.
-      const html = await safeFetchText(source.url);
-      const generic = extractGenericBoardPostings(html, source.url);
+      // on the listing page, then a conservative HTML-link heuristic, following `rel="next"`
+      // pagination across pages so multi-page boards (common — e.g. ~30 postings/page) aren't
+      // silently truncated to just the first page.
+      const generic = await fetchGenericBoardWithPagination(source.url);
       if (!generic) {
         throw new Error(
           "Couldn't find any job postings on this page. Greenhouse, Lever, and Ashby boards " +

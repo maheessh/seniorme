@@ -1,12 +1,15 @@
 import type { InboxStatus } from "@ccc/db";
-import { formatDistanceToNow } from "date-fns";
-import { Archive, Bookmark, CheckCircle2, ThumbsDown, ThumbsUp, X } from "lucide-react";
+import { differenceInDays, formatDistanceToNow } from "date-fns";
+import { Archive, Bookmark, CheckCircle2, ExternalLink, ThumbsDown, ThumbsUp, X } from "lucide-react";
 import { forwardRef } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CompanyLogo } from "@/components/company-logo";
 import { cn } from "@/lib/utils";
 import type { InboxJob } from "@/lib/server/services/inbox";
+
+/** Postings older than this read as "way too old to bother with" rather than fresh. */
+const STALE_POSTING_DAYS = 30;
 
 function stripHtml(html: string): string {
   return html
@@ -39,6 +42,8 @@ export const InboxRow = forwardRef<
     onDismissDuplicate: () => void;
   }
 >(function InboxRow({ job, focused, expanded, onFocus, onToggleExpand, onAct, onDismissDuplicate }, ref) {
+  const postedStale = job.postedAt ? differenceInDays(new Date(), job.postedAt) > STALE_POSTING_DAYS : false;
+
   return (
     <div
       ref={ref}
@@ -71,6 +76,11 @@ export const InboxRow = forwardRef<
             <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
               {job.workMode !== "UNKNOWN" ? <Badge>{WORK_MODE_LABEL[job.workMode]}</Badge> : null}
               {job.employmentType ? <Badge>{job.employmentType.replace("_", " ")}</Badge> : null}
+              {job.postedAt ? (
+                <span className={cn("text-xs", postedStale ? "text-warning" : "text-muted-foreground")}>
+                  posted {formatDistanceToNow(job.postedAt, { addSuffix: true })}
+                </span>
+              ) : null}
               <span className="text-xs text-muted-foreground">
                 discovered {formatDistanceToNow(job.discoveredAt, { addSuffix: true })}
               </span>
@@ -79,9 +89,18 @@ export const InboxRow = forwardRef<
         </div>
 
         <div
-          className="flex shrink-0 gap-0.5"
+          className="flex shrink-0 items-center gap-0.5"
           onClick={(event) => event.stopPropagation()}
         >
+          <a
+            href={job.url}
+            target="_blank"
+            rel="noreferrer"
+            aria-label="Open posting"
+            className="flex h-9 w-9 items-center justify-center text-muted-foreground hover:text-foreground"
+          >
+            <ExternalLink className="h-4 w-4" />
+          </a>
           <Button type="button" variant="ghost" size="icon" aria-label="Interested" onClick={() => onAct("INTERESTED")}>
             <ThumbsUp className="h-4 w-4" />
           </Button>

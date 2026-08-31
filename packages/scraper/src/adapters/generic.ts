@@ -2,6 +2,8 @@ import * as cheerio from "cheerio";
 import type { SourceType } from "@ccc/db";
 import { extractAllJobPostingsJsonLd } from "../jsonld";
 import { hashUrl, mapEmploymentType, mapWorkMode } from "../normalize";
+import { isAllowedByRobots } from "../robots";
+import { safeFetchText } from "../safe-fetch";
 import type { RawJobPosting } from "../types";
 
 const JOB_PATH_RE = /\/(?:jobs?|careers?|positions?|openings?)\/[a-z0-9][a-z0-9._-]{2,}/i;
@@ -104,4 +106,77 @@ export function extractGenericBoardPostings(html: string, baseUrl: string): Gene
   }
 
   return null;
+}
+
+/** Hard cap on how many pages a single scrape will follow, in case a site's pagination loops
+ * or is unexpectedly deep — protects against runaway fetch chains against one host. */
+const MAX_PAGES = 25;
+
+/**
+ * Finds the next page in a paginated listing via the standard `rel="next"` signal (either an
+ * `<a rel="next">` in the page body or a `<link rel="next">` in the head — both are common,
+ * unambiguous conventions, unlike guessing at "page=N+1" query params, which risks looping
+ * forever or wandering off the listing entirely on a site that doesn't actually paginate that
+ * way). Returns null if there's no next page, it points off-host, or it points back at the
+ * current page (loop guard).
+ */
+function findNextPageUrl(html: string, currentUrl: string): string | null {
+  const $ = cheerio.load(html);
+  const href = $('a[rel="next"], link[rel="next"]').first().attr("href");
+  if (!href) return null;
+
+  try {
+    const current = new URL(currentUrl);
+    const next = new URL(href, current);
+    if (next.hostname !== current.hostname) return null;
+    if (next.toString() === current.toString()) return null;
+    return next.toString();
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Fetches and extracts a full generic board, following `rel="next"` pagination across pages
+ * (many career boards — including ATS-agnostic ones like Waymo's Clinch-based site — paginate
+ * listings at ~25-30 postings per page; fetching only the first page silently misses most of
+ * the board). Each page goes through the same robots.txt + SSRF-safe fetch path as the first.
+ */
+export async function fetchGenericBoardWithPagination(sourceUrl: string): Promise<GenericBoardResult | null> {
+  const postings: RawJobPosting[] = [];
+  let resolvedType: SourceType | null = null;
+  let currentUrl: string | null = sourceUrl;
+  const visited = new Set<string>();
+
+  for (let page = 0; page < MAX_PAGES && currentUrl && !visited.has(currentUrl); page++) {
+    visited.add(currentUrl);
+
+    if (page > 0 && !(await isAllowedByRobots(currentUrl))) break;
+
+    let html: string;
+    try {
+      html = await safeFetchText(currentUrl);
+    } catch (error) {
+      // A later page failing outright (timeout, a transient block, a bot-detection challenge
+      // response) shouldn't discard postings already found on earlier pages — that's strictly
+      // worse than just stopping here with a partial result. Only a first-page failure should
+      // fail the whole scrape (handled by the caller, which doesn't catch this rethrow).
+      if (page === 0) throw error;
+      break;
+    }
+
+    const result = extractGenericBoardPostings(html, currentUrl);
+
+    if (!result) {
+      if (page === 0) return null;
+      break;
+    }
+
+    resolvedType = result.resolvedType;
+    postings.push(...result.postings);
+    currentUrl = findNextPageUrl(html, currentUrl);
+  }
+
+  if (!resolvedType) return null;
+  return { postings, resolvedType };
 }
