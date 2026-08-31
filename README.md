@@ -3,13 +3,15 @@
 A personal career, project, and job-application command center. See [ARCHITECTURE.md](ARCHITECTURE.md)
 for the full system design, database schema, and phased implementation roadmap this project follows.
 
-**Status:** Phases 0–4 complete. Auth, database, base app shell, the web/worker process
+**Status:** Phases 0–5 complete. Auth, database, base app shell, the web/worker process
 split, the company tracker, career-page monitoring (Greenhouse/Lever/Ashby adapters, BullMQ
 scheduler + worker, manual refresh, SSRF/robots.txt-safe fetching), the job discovery inbox
-(keyboard-driven triage, fuzzy-duplicate flagging, activity logging), and the application
-pipeline (drag-and-drop Kanban + table views, stage history, contacts, deadlines, notes) are
-all working end-to-end. Remaining feature phases (job link import, projects/goals, analytics,
-notifications) build on top of this incrementally — see `ARCHITECTURE.md` §14 for the roadmap.
+(keyboard-driven triage, fuzzy-duplicate flagging, activity logging), the application pipeline
+(drag-and-drop Kanban + table views, stage history, contacts, deadlines, notes), and job-link
+import (tiered extraction — ATS API reuse, JSON-LD, Claude-assisted, OpenGraph — with company
+dedup and a manual-entry fallback) are all working end-to-end. Remaining feature phases
+(projects/goals, analytics, notifications) build on top of this incrementally — see
+`ARCHITECTURE.md` §14 for the roadmap.
 
 ## Stack
 
@@ -92,10 +94,14 @@ packages/
 
 ## Known limitations
 
-- Companies (Phase 1), career-page monitoring (Phase 2), the discovery inbox (Phase 3), and
-  the application pipeline (Phase 4) all have full functionality; job-link import, projects,
-  and goals do not yet — those pages are intentionally simple placeholders that name the phase
-  they arrive in.
+- Companies (Phase 1), career-page monitoring (Phase 2), the discovery inbox (Phase 3), the
+  application pipeline (Phase 4), and job-link import (Phase 5) all have full functionality;
+  projects and goals do not yet — those pages are intentionally simple placeholders that name
+  the phase they arrive in.
+- Job-link import's Claude-assisted extraction tier only runs when `ANTHROPIC_API_KEY` is set
+  in `.env` — without it, extraction still works via the ATS-API/JSON-LD/OpenGraph tiers, just
+  with a weaker fallback for sites that use none of those (verified end-to-end against a
+  robots.txt-blocked LinkedIn URL, which correctly degrades to manual entry).
 - Pipeline "interview dates" live on the relevant `ApplicationEvent` (via its optional
   `scheduledAt`) rather than a single field on `Application` — a role can have several
   scheduled rounds (OA, screen, interview, final) over its lifetime, so the date belongs to

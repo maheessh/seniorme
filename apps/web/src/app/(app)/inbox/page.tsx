@@ -1,5 +1,6 @@
 import type { InboxStatus } from "@ccc/db";
 import { countInboxJobs, INBOX_STATUSES, listInboxJobs } from "@/lib/server/services/inbox";
+import { ImportJobDialog } from "./import-job-dialog";
 import { InboxList } from "./inbox-list";
 import { StatusTabs } from "./status-tabs";
 
@@ -28,19 +29,22 @@ export default async function InboxPage({
 
   return (
     <div className="flex flex-col gap-5">
-      <div>
-        <h1 className="font-display text-2xl">Inbox</h1>
-        <p className="text-sm text-muted-foreground">
-          Triage discovered jobs fast — click a row or press{" "}
-          <kbd className="rounded border border-border px-1 text-xs">j</kbd>/
-          <kbd className="rounded border border-border px-1 text-xs">k</kbd> to move,{" "}
-          <kbd className="rounded border border-border px-1 text-xs">i</kbd> interested,{" "}
-          <kbd className="rounded border border-border px-1 text-xs">s</kbd> save,{" "}
-          <kbd className="rounded border border-border px-1 text-xs">a</kbd> apply,{" "}
-          <kbd className="rounded border border-border px-1 text-xs">x</kbd> not interested,{" "}
-          <kbd className="rounded border border-border px-1 text-xs">g</kbd> ignore,{" "}
-          <kbd className="rounded border border-border px-1 text-xs">Enter</kbd> expand.
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="font-display text-2xl">Inbox</h1>
+          <p className="text-sm text-muted-foreground">
+            Triage discovered jobs fast — click a row or press{" "}
+            <kbd className="rounded border border-border px-1 text-xs">j</kbd>/
+            <kbd className="rounded border border-border px-1 text-xs">k</kbd> to move,{" "}
+            <kbd className="rounded border border-border px-1 text-xs">i</kbd> interested,{" "}
+            <kbd className="rounded border border-border px-1 text-xs">s</kbd> save,{" "}
+            <kbd className="rounded border border-border px-1 text-xs">a</kbd> apply,{" "}
+            <kbd className="rounded border border-border px-1 text-xs">x</kbd> not interested,{" "}
+            <kbd className="rounded border border-border px-1 text-xs">g</kbd> ignore,{" "}
+            <kbd className="rounded border border-border px-1 text-xs">Enter</kbd> expand.
+          </p>
+        </div>
+        <ImportJobDialog />
       </div>
 
       <StatusTabs active={status} counts={counts} />

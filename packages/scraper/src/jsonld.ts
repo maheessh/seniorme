@@ -1,0 +1,101 @@
+export type JsonLdJobPosting = {
+  title?: string;
+  descriptionHtml?: string;
+  externalJobId?: string;
+  postedAt?: string;
+  companyName?: string;
+  companyDomain?: string;
+  companyLogoUrl?: string;
+  location?: string;
+  employmentType?: string;
+  isRemote?: boolean;
+  salaryMin?: number;
+  salaryMax?: number;
+};
+
+const SCRIPT_BLOCK_RE = /<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
+
+function isJobPosting(node: unknown): node is Record<string, unknown> {
+  if (!node || typeof node !== "object") return false;
+  const type = (node as Record<string, unknown>)["@type"];
+  if (typeof type === "string") return type === "JobPosting";
+  if (Array.isArray(type)) return type.includes("JobPosting");
+  return false;
+}
+
+/** JSON-LD can be a single object, an array, or wrapped in a @graph — search all shapes. */
+function findJobPostingNodes(parsed: unknown): Record<string, unknown>[] {
+  if (Array.isArray(parsed)) return parsed.flatMap(findJobPostingNodes);
+  if (parsed && typeof parsed === "object") {
+    const obj = parsed as Record<string, unknown>;
+    if (isJobPosting(obj)) return [obj];
+    if (Array.isArray(obj["@graph"])) return findJobPostingNodes(obj["@graph"]);
+  }
+  return [];
+}
+
+function asString(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function asNumber(value: unknown): number | undefined {
+  const num = typeof value === "number" ? value : typeof value === "string" ? Number(value) : NaN;
+  return Number.isFinite(num) ? num : undefined;
+}
+
+function formatAddress(address: unknown): string | undefined {
+  if (!address || typeof address !== "object") return undefined;
+  const a = address as Record<string, unknown>;
+  const parts = [asString(a.addressLocality), asString(a.addressRegion), asString(a.addressCountry)];
+  const joined = parts.filter(Boolean).join(", ");
+  return joined || undefined;
+}
+
+export function extractJobPostingJsonLd(html: string): JsonLdJobPosting | null {
+  const blocks = [...html.matchAll(SCRIPT_BLOCK_RE)].map((match) => match[1]);
+
+  for (const block of blocks) {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(block);
+    } catch {
+      continue;
+    }
+
+    const [node] = findJobPostingNodes(parsed);
+    if (!node) continue;
+
+    const org = node.hiringOrganization as Record<string, unknown> | undefined;
+    const location = node.jobLocation as Record<string, unknown> | Record<string, unknown>[] | undefined;
+    const firstLocation = Array.isArray(location) ? location[0] : location;
+    const address = firstLocation?.address;
+    const salary = node.baseSalary as Record<string, unknown> | undefined;
+    const salaryValue = salary?.value as Record<string, unknown> | undefined;
+    const identifier = node.identifier as Record<string, unknown> | undefined;
+
+    return {
+      title: asString(node.title),
+      descriptionHtml: asString(node.description),
+      externalJobId: asString(identifier?.value) ?? asString(node.identifier),
+      postedAt: asString(node.datePosted),
+      companyName: asString(org?.name),
+      companyDomain: (() => {
+        const sameAs = asString(org?.sameAs);
+        if (!sameAs) return undefined;
+        try {
+          return new URL(sameAs).hostname.replace(/^www\./, "");
+        } catch {
+          return undefined;
+        }
+      })(),
+      companyLogoUrl: asString(org?.logo),
+      location: formatAddress(address) ?? asString(firstLocation?.name),
+      employmentType: asString(node.employmentType),
+      isRemote: node.jobLocationType === "TELECOMMUTE" || undefined,
+      salaryMin: asNumber(salaryValue?.minValue),
+      salaryMax: asNumber(salaryValue?.maxValue),
+    };
+  }
+
+  return null;
+}

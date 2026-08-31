@@ -8,7 +8,7 @@ export class DuplicateDomainError extends Error {
   }
 }
 
-function deriveLogoUrl(domain: string | undefined): string | null {
+export function deriveLogoUrl(domain: string | undefined): string | null {
   // DuckDuckGo's icon service resolves a real favicon/logo for a bare domain with no API
   // key and no rate limiting for personal use — more reliable than Clearbit's now-defunct
   // free logo API.
@@ -45,6 +45,16 @@ export function listCompanies(filters: CompanyFilters = {}) {
 
 export function getCompany(id: string) {
   return prisma.company.findUnique({ where: { id } });
+}
+
+/** Lightweight search for autocomplete pickers (job import's company field). */
+export function searchCompanies(query: string, limit = 8) {
+  if (!query.trim()) return prisma.company.findMany({ orderBy: { name: "asc" }, take: limit });
+  return prisma.company.findMany({
+    where: { name: { contains: query, mode: "insensitive" } },
+    orderBy: { name: "asc" },
+    take: limit,
+  });
 }
 
 async function handleUniqueConstraint<T>(fn: () => Promise<T>, domain: string | undefined) {
