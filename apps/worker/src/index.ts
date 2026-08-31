@@ -1,12 +1,12 @@
 import { prisma } from "@ccc/db";
+import type { Worker } from "bullmq";
 import { logger } from "./logger";
+import { scrapeQueue } from "./queue";
 import { connection } from "./redis";
+import { registerScheduler } from "./scheduler";
+import { startWorker } from "./worker-runner";
 
-// This process is intentionally kept separate from the Next.js `web` app so that
-// long-running/scheduled work (career-page monitoring, starting in Phase 2) never
-// depends on a serverless-friendly request/response lifecycle. Right now it only
-// proves out the topology: it can reach Postgres and Redis and stays alive under
-// Docker Compose. The BullMQ scheduler + queue + adapters land in Phase 2.
+let worker: Worker | undefined;
 
 async function main() {
   await connection.ping();
@@ -15,11 +15,18 @@ async function main() {
   await prisma.$queryRaw`SELECT 1`;
   logger.info("Connected to Postgres");
 
-  logger.info("Worker process ready (no scheduled jobs registered yet — see Phase 2)");
+  worker = startWorker();
+  logger.info("BullMQ worker started (concurrency: 3)");
+
+  await registerScheduler();
+
+  logger.info("Worker process ready — career-page monitoring is live");
 }
 
 async function shutdown(signal: string) {
   logger.info({ signal }, "Shutting down worker");
+  await worker?.close();
+  await scrapeQueue.close();
   await connection.quit();
   await prisma.$disconnect();
   process.exit(0);

@@ -20,6 +20,10 @@ export type CompanyFilters = {
   priority?: Priority;
 };
 
+export type CompanyWithSources = Prisma.CompanyGetPayload<{
+  include: { careerSources: true };
+}>;
+
 export function listCompanies(filters: CompanyFilters = {}) {
   return prisma.company.findMany({
     where: {
@@ -35,6 +39,7 @@ export function listCompanies(filters: CompanyFilters = {}) {
         : {}),
     },
     orderBy: [{ priority: "desc" }, { name: "asc" }],
+    include: { careerSources: { orderBy: { createdAt: "asc" } } },
   });
 }
 

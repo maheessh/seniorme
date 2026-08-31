@@ -1,0 +1,207 @@
+import { Prisma, prisma } from "@ccc/db";
+import {
+  detectSourceType,
+  hashContent,
+  hashUrl,
+  isAllowedByRobots,
+  resolveAdapter,
+  type RawJobPosting,
+} from "@ccc/scraper";
+import { logger } from "./logger";
+
+const CONSECUTIVE_FAILURE_NOTIFY_THRESHOLD = 5;
+
+export async function processScrapeSource(
+  careerSourceId: string,
+  triggeredBy: "scheduler" | "manual",
+): Promise<void> {
+  const source = await prisma.careerSource.findUnique({
+    where: { id: careerSourceId },
+    include: { company: true },
+  });
+  if (!source) {
+    logger.warn({ careerSourceId }, "CareerSource no longer exists, skipping");
+    return;
+  }
+
+  const startedAt = new Date();
+  let jobsFound = 0;
+  let jobsNew = 0;
+  let errorMessage: string | null = null;
+  let resolvedType = source.sourceType;
+
+  try {
+    const allowed = await isAllowedByRobots(source.url);
+    if (!allowed) {
+      throw new Error("Fetching this URL is disallowed by the site's robots.txt");
+    }
+
+    const adapter = resolveAdapter(source.url);
+    if (!adapter) {
+      const detected = detectSourceType(source.url);
+      throw new Error(
+        `No adapter available yet for this career page (detected type: ${detected}). Greenhouse, Lever, and Ashby boards are supported so far.`,
+      );
+    }
+    resolvedType = adapter.type;
+
+    const { postings } = await adapter.fetchPostings(source.url);
+    jobsFound = postings.length;
+
+    const seen = new Set<string>();
+    const deduped = postings.filter((posting) =>
+      seen.has(posting.externalJobId) ? false : Boolean(seen.add(posting.externalJobId)),
+    );
+
+    for (const posting of deduped) {
+      jobsNew += await upsertJobPosting(source.id, source.companyId, source.company.name, posting);
+    }
+
+    await prisma.job.updateMany({
+      where: {
+        careerSourceId: source.id,
+        isRemoved: false,
+        externalJobId: { notIn: deduped.map((posting) => posting.externalJobId) },
+      },
+      data: { isRemoved: true },
+    });
+
+    if (jobsNew > 0) {
+      await prisma.notification.create({
+        data: {
+          type: "NEW_MATCHING_JOB",
+          title: `${jobsNew} new job${jobsNew === 1 ? "" : "s"} at ${source.company.name}`,
+          body: `Found ${jobsNew} new posting${jobsNew === 1 ? "" : "s"} while checking ${source.url}.`,
+          linkUrl: "/inbox",
+        },
+      });
+    }
+  } catch (error) {
+    errorMessage = error instanceof Error ? error.message : String(error);
+  }
+
+  const consecutiveFailures = errorMessage ? source.consecutiveFailures + 1 : 0;
+
+  await prisma.$transaction([
+    prisma.careerSource.update({
+      where: { id: source.id },
+      data: {
+        sourceType: resolvedType,
+        lastCheckedAt: startedAt,
+        lastSuccessAt: errorMessage ? source.lastSuccessAt : startedAt,
+        consecutiveFailures,
+        lastError: errorMessage,
+      },
+    }),
+    prisma.scrapeRun.create({
+      data: {
+        careerSourceId: source.id,
+        startedAt,
+        finishedAt: new Date(),
+        status: errorMessage ? "FAILURE" : "SUCCESS",
+        jobsFound,
+        jobsNew,
+        errorMessage,
+        triggeredBy,
+      },
+    }),
+  ]);
+
+  if (errorMessage && consecutiveFailures === CONSECUTIVE_FAILURE_NOTIFY_THRESHOLD) {
+    await prisma.notification.create({
+      data: {
+        type: "SCRAPER_FAILING",
+        title: `Career-page monitoring failing for ${source.company.name}`,
+        body: `${consecutiveFailures} consecutive failed checks. Last error: ${errorMessage}`,
+        linkUrl: "/companies",
+      },
+    });
+  }
+
+  if (errorMessage) {
+    logger.error({ careerSourceId, error: errorMessage }, "Scrape failed");
+  } else {
+    logger.info({ careerSourceId, jobsFound, jobsNew }, "Scrape completed");
+  }
+}
+
+/** Returns 1 if a new Job row was created, 0 if it matched an existing one. */
+async function upsertJobPosting(
+  careerSourceId: string,
+  companyId: string,
+  companyName: string,
+  posting: RawJobPosting,
+): Promise<number> {
+  const canonicalHash = hashUrl(posting.url);
+  const contentHash = posting.description ? hashContent(posting.description) : null;
+
+  const existing = await prisma.job.findFirst({
+    where: {
+      OR: [{ companyId, externalJobId: posting.externalJobId }, { canonicalUrlHash: canonicalHash }],
+    },
+  });
+
+  if (existing) {
+    const descriptionChanged = Boolean(contentHash) && contentHash !== existing.descriptionHash;
+    if (descriptionChanged || existing.isRemoved) {
+      await prisma.job.update({
+        where: { id: existing.id },
+        data: {
+          isRemoved: false,
+          ...(descriptionChanged
+            ? { descriptionRaw: posting.description, descriptionHash: contentHash }
+            : {}),
+        },
+      });
+      if (descriptionChanged) {
+        await prisma.activityEvent.create({
+          data: {
+            type: "job_updated",
+            entityType: "job",
+            entityId: existing.id,
+            jobId: existing.id,
+            summary: `Job description updated: ${existing.title} at ${companyName}`,
+          },
+        });
+      }
+    }
+    return 0;
+  }
+
+  try {
+    const created = await prisma.job.create({
+      data: {
+        companyId,
+        careerSourceId,
+        title: posting.title,
+        location: posting.location,
+        workMode: posting.workMode,
+        employmentType: posting.employmentType,
+        url: posting.url,
+        canonicalUrlHash: canonicalHash,
+        externalJobId: posting.externalJobId,
+        descriptionRaw: posting.description,
+        descriptionHash: contentHash,
+        postedAt: posting.postedAt,
+      },
+    });
+
+    await prisma.activityEvent.create({
+      data: {
+        type: "job_discovered",
+        entityType: "job",
+        entityId: created.id,
+        jobId: created.id,
+        summary: `New job discovered: ${created.title} at ${companyName}`,
+      },
+    });
+    return 1;
+  } catch (error) {
+    // Rare race: another run inserted the same canonicalUrlHash between our findFirst and
+    // create. Treat as "already known" rather than a hard failure.
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      return 0;
+    }
+    throw error;
+  }
+}

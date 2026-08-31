@@ -4,7 +4,6 @@ packages:
 allowBuilds:
   '@prisma/engines': true
   esbuild: true
-  msgpackr-extract: set this to true or false
+  msgpackr-extract: true
   prisma: true
   unrs-resolver: true
-  workerd: set this to true or false

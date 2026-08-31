@@ -15,7 +15,9 @@
   },
   "dependencies": {
     "@ccc/db": "workspace:*",
+    "@ccc/scraper": "workspace:*",
     "@ccc/shared": "workspace:*",
+    "bullmq": "^6.3.2",
     "ioredis": "^6.0.0",
     "pino": "^10.3.1",
     "zod": "^4.5.4"
