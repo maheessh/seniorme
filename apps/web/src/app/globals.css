@@ -24,11 +24,15 @@
   --secondary: #f1efec;
   --secondary-foreground: #171a21;
 
-  --destructive: #d64545;
+  /* Darkened from the original #d64545/#1a9e6a/#d98b1c so text-on-card and badge (bg/15)
+     usages both clear WCAG AA's 4.5:1 for normal text — the originals landed as low as 2.7:1
+     for plain warning text and 2.4:1 inside a warning badge. Dark-mode equivalents already
+     clear AA and are untouched. */
+  --destructive: #b83b3b;
   --destructive-foreground: #ffffff;
 
-  --success: #1a9e6a;
-  --warning: #d98b1c;
+  --success: #13754e;
+  --warning: #8f5c12;
 
   /* Cluely-inspired soft sky-to-sunset hero gradient, for the dashboard header banner */
   --hero-gradient: linear-gradient(135deg, #eaf2ff 0%, #f3ecff 35%, #ffe9d9 70%, #ffdfc9 100%);

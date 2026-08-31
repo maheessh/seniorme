@@ -143,7 +143,7 @@ export async function processScrapeSource(
 }
 
 /** Returns 1 if a new Job row was created, 0 if it matched an existing one. */
-async function upsertJobPosting(
+export async function upsertJobPosting(
   careerSourceId: string,
   companyId: string,
   companyName: string,
@@ -165,50 +165,35 @@ async function upsertJobPosting(
     const postedAtChanged =
       posting.postedAt !== null &&
       (!existing.postedAt || posting.postedAt.getTime() !== existing.postedAt.getTime());
+    const urlChanged = posting.url !== existing.url;
     // Keeps the "still listed" check below (externalJobId notIn [this scrape's ids]) from
     // wrongly flagging a job as removed just because an adapter's id scheme changed (e.g. the
     // generic HTML heuristic's hash-of-url ids vs a real ATS's numeric ids) — the job matched
     // via canonicalUrlHash, so it's still there, but its stored id needs to move with it.
     const externalJobIdChanged = posting.externalJobId !== existing.externalJobId;
 
-    if (
-      descriptionChanged ||
-      titleChanged ||
-      locationChanged ||
-      postedAtChanged ||
-      externalJobIdChanged ||
-      existing.isRemoved
-    ) {
+    const safeFields = {
+      isRemoved: false,
+      ...(descriptionChanged ? { descriptionRaw: posting.description, descriptionHash: contentHash } : {}),
+      ...(titleChanged ? { title: posting.title } : {}),
+      ...(locationChanged ? { location: posting.location } : {}),
+      ...(postedAtChanged ? { postedAt: posting.postedAt } : {}),
+    };
+    // externalJobId and canonicalUrlHash are both unique — a changed value can (rarely) collide
+    // with a different existing job at update time. Everything else above is safe to always
+    // apply, so a collision on either of these should still let the rest of the refresh through
+    // rather than losing it — see the P2002 fallback below.
+    const uniqueFields = {
+      ...(externalJobIdChanged ? { externalJobId: posting.externalJobId } : {}),
+      ...(urlChanged ? { url: posting.url, canonicalUrlHash: canonicalHash } : {}),
+    };
+
+    if (Object.keys(safeFields).length > 1 || Object.keys(uniqueFields).length > 0 || existing.isRemoved) {
       try {
-        await prisma.job.update({
-          where: { id: existing.id },
-          data: {
-            isRemoved: false,
-            ...(descriptionChanged
-              ? { descriptionRaw: posting.description, descriptionHash: contentHash }
-              : {}),
-            ...(titleChanged ? { title: posting.title } : {}),
-            ...(locationChanged ? { location: posting.location } : {}),
-            ...(postedAtChanged ? { postedAt: posting.postedAt } : {}),
-            ...(externalJobIdChanged ? { externalJobId: posting.externalJobId } : {}),
-          },
-        });
+        await prisma.job.update({ where: { id: existing.id }, data: { ...safeFields, ...uniqueFields } });
       } catch (error) {
-        // Rare: the new externalJobId collides with another existing job at this company.
-        // Retry without that one field rather than losing the description/title/date refresh.
-        if (externalJobIdChanged && error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-          await prisma.job.update({
-            where: { id: existing.id },
-            data: {
-              isRemoved: false,
-              ...(descriptionChanged
-                ? { descriptionRaw: posting.description, descriptionHash: contentHash }
-                : {}),
-              ...(titleChanged ? { title: posting.title } : {}),
-              ...(locationChanged ? { location: posting.location } : {}),
-              ...(postedAtChanged ? { postedAt: posting.postedAt } : {}),
-            },
-          });
+        if (Object.keys(uniqueFields).length > 0 && error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+          await prisma.job.update({ where: { id: existing.id }, data: safeFields });
         } else {
           throw error;
         }

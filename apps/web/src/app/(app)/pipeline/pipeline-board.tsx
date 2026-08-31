@@ -4,10 +4,12 @@ import type { ApplicationStage } from "@ccc/db";
 import { ALL_STAGES, STAGE_LABEL } from "@ccc/shared";
 import {
   DndContext,
+  KeyboardSensor,
   PointerSensor,
   useDroppable,
   useSensor,
   useSensors,
+  type Announcements,
   type DragEndEvent,
 } from "@dnd-kit/core";
 import { useState, useTransition } from "react";
@@ -72,7 +74,34 @@ export function PipelineBoard({
     setColumns(grouped);
   }
 
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
+  // KeyboardSensor makes the board operable without a pointer: Tab to a card, Space to pick it
+  // up, arrow keys to move between columns, Space to drop, Escape to cancel — dnd-kit wires this
+  // up automatically once a card's draggable attributes/listeners are on a focusable element
+  // (ApplicationCard already spreads them onto its root div).
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor),
+  );
+
+  function describeCard(id: string): string {
+    const application = Object.values(columns)
+      .flat()
+      .find((app) => app.id === id);
+    return application ? `${application.job.title} at ${application.company.name}` : "card";
+  }
+
+  const announcements: Announcements = {
+    onDragStart: ({ active }) => `Picked up ${describeCard(active.id as string)}.`,
+    onDragOver: ({ active, over }) =>
+      over
+        ? `${describeCard(active.id as string)} is over the ${STAGE_LABEL[over.id as ApplicationStage]} column.`
+        : `${describeCard(active.id as string)} is no longer over a column.`,
+    onDragEnd: ({ active, over }) =>
+      over
+        ? `Moved ${describeCard(active.id as string)} to ${STAGE_LABEL[over.id as ApplicationStage]}.`
+        : `${describeCard(active.id as string)} was dropped outside any column — no change made.`,
+    onDragCancel: ({ active }) => `Cancelled moving ${describeCard(active.id as string)}.`,
+  };
 
   function handleDragEnd(event: DragEndEvent) {
     const applicationId = event.active.id as string;
@@ -108,7 +137,12 @@ export function PipelineBoard({
 
   return (
     <>
-      <DndContext id="pipeline-board" sensors={sensors} onDragEnd={handleDragEnd}>
+      <DndContext
+        id="pipeline-board"
+        sensors={sensors}
+        onDragEnd={handleDragEnd}
+        accessibility={{ announcements }}
+      >
         <div className="flex gap-3 overflow-x-auto pb-3">
           {ALL_STAGES.map((stage) => (
             <Column key={stage} stage={stage} applications={columns[stage]} onCardClick={setOpenId} />

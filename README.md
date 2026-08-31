@@ -18,7 +18,12 @@ computed from real Prisma aggregations, no dummy data), and notifications (in-ap
 center with an unread badge in the sidebar; triggers for new matching jobs, approaching
 application deadlines, due follow-ups, upcoming interviews, goal deadlines, and repeated
 scraper failures, all dedup-aware so the same event never re-notifies) are all working
-end-to-end. See `ARCHITECTURE.md` §14 for the full roadmap (hardening/tests and docs remain).
+end-to-end. Phase 9 (hardening) is in progress — a global command palette (`⌘K`/`Ctrl+K`,
+search-to-jump across every page), keyboard-operable Kanban drag-and-drop, a WCAG-AA color
+contrast pass, and a growing test suite (117 tests: unit tests for the scraper package,
+integration tests against a real database for the worker's dedup/notification/cleanup logic —
+see "Running tests"). See `ARCHITECTURE.md` §14 for the full roadmap (an accessibility audit
+beyond the fixes already made, E2E tests, and deployment docs remain).
 
 ## Stack
 
@@ -79,6 +84,23 @@ throttled to once per 5 minutes per source.
 All defined once in the root `.env` (not per-app — see `apps/web/next.config.ts` and each
 package's scripts, which load it explicitly). See `.env.example` for the full list.
 
+## Running tests
+
+`packages/scraper`'s suite is pure unit tests — `pnpm test` runs it with no setup. `apps/worker`
+also has integration tests that hit a real Postgres database (`upsertJobPosting`'s dedup/update
+behavior, the ignored-job cleanup, and notification-check dedup all need real unique-constraint
+and query behavior to mean anything) — they run against a dedicated `ccc_test` database, never
+your real `ccc` one. One-time setup:
+
+```bash
+docker compose exec postgres psql -U ccc -d ccc -c "CREATE DATABASE ccc_test OWNER ccc;"
+DATABASE_URL="postgresql://ccc:ccc@localhost:5432/ccc_test?schema=public" pnpm --filter @ccc/db exec prisma migrate deploy
+```
+
+Then `pnpm test` (or `pnpm --filter @ccc/worker test`) runs everything — `apps/worker/src/test-setup.ts`
+points the tests at `ccc_test` regardless of what's in `.env`, and each test file truncates its
+tables between tests via `apps/worker/src/test-helpers.ts`.
+
 ## Monorepo layout
 
 ```
@@ -100,21 +122,34 @@ packages/
 | `pnpm db:studio` | Open Prisma Studio against the local database |
 | `pnpm build` | Production build of db client, web, and worker |
 | `pnpm lint` | Lint all workspaces |
-| `pnpm test` | Run the test suite (currently `packages/scraper`'s Vitest unit tests) |
+| `pnpm test` | Run all test suites (`packages/scraper` unit tests, `apps/worker` integration tests — see "Running tests") |
 | `docker compose --profile full up` | Run the full 4-service topology (web+worker+postgres+redis) in containers, matching the eventual deployment shape |
 
 ## Known limitations
 
 - Companies (Phase 1) through notifications (Phase 8) all have full functionality. Phase 9
-  (hardening) is in progress: `packages/scraper` has an 86-test Vitest suite covering URL/content
-  normalization, ATS-type detection, both JSON-LD extraction paths, the generic HTML-link
-  heuristic (including its "not enough real matches" and "self-referential/off-host link" guard
-  rails), `rel="next"` pagination, the iCIMS adapter's parsing, and the SSRF guard's IP-blocking
-  logic — writing that last suite caught two real bugs (IPv6-literal blocking was silently
-  unreachable due to how `URL.hostname` brackets IPv6 addresses, and an IPv4-mapped IPv6 address
-  in its URL-normalized hex form slipped past the private-IP check), both fixed and now
-  regression-tested. Integration/E2E tests, an accessibility pass, and a command palette are not
-  built yet; deployment docs (Phase 10) remain.
+  (hardening) is in progress. `packages/scraper` has an 86-test Vitest unit suite covering
+  URL/content normalization, ATS-type detection, both JSON-LD extraction paths, the generic
+  HTML-link heuristic (including its "not enough real matches" and "self-referential/off-host
+  link" guard rails), `rel="next"` pagination, the iCIMS adapter's parsing, and the SSRF guard's
+  IP-blocking logic — writing that last suite caught two real bugs (IPv6-literal blocking was
+  silently unreachable due to how `URL.hostname` brackets IPv6 addresses, and an IPv4-mapped IPv6
+  address in its URL-normalized hex form slipped past the private-IP check), both fixed and now
+  regression-tested. `apps/worker` has a 31-test integration suite against a real Postgres test
+  database covering the dedup/upsert edge cases from `ARCHITECTURE.md` §12 (duplicate postings
+  across runs, a changed URL with the same external ID, a removed-then-relisted job, missing
+  metadata, fuzzy-duplicate flagging), the ignored-job auto-purge, and notification dedup
+  (including "scheduler tick fires twice" not double-notifying). A command palette
+  (`apps/web/src/components/command-palette.tsx`) is mounted globally — `⌘K`/`Ctrl+K` from
+  anywhere, type to filter, arrow keys + Enter or click to jump to a page. The Kanban board's
+  drag-and-drop is now keyboard-operable (dnd-kit's `KeyboardSensor`: Tab to a card, Space to
+  pick up, arrows to move between columns, Space to drop, Escape to cancel), with screen-reader
+  announcements naming the actual job/stage rather than raw IDs. An accessibility pass over the
+  light-mode color tokens found `--destructive`/`--success`/`--warning` all fell short of WCAG
+  AA's 4.5:1 contrast for normal text in at least one real usage (as low as 2.4:1 for warning
+  text inside its own badge) — all three darkened to clear 4.5:1 in both plain-text and
+  badge-tinted contexts; dark mode already passed. This wasn't an exhaustive accessibility audit
+  (E2E tests and a broader a11y pass remain); deployment docs (Phase 10) also remain.
 - "Scrape now" always re-fetches a source's full listing — none of the supported ATS/HTML
   sources expose a "changes since" endpoint, so there's no partial/incremental fetch mode to
   configure. What it does skip is redundant *work*: postings that already exist (by canonical
