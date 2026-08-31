@@ -195,6 +195,9 @@ async function upsertJobPosting(
         summary: `New job discovered: ${created.title} at ${companyName}`,
       },
     });
+
+    await flagPossibleDuplicate(created.id, companyId, posting.title);
+
     return 1;
   } catch (error) {
     // Rare race: another run inserted the same canonicalUrlHash between our findFirst and
@@ -203,5 +206,26 @@ async function upsertJobPosting(
       return 0;
     }
     throw error;
+  }
+}
+
+const DUPLICATE_TITLE_SIMILARITY_THRESHOLD = 0.55;
+
+/**
+ * Fuzzy-dedup tier: the same role can get reposted with a new external ID and URL (the ID/hash
+ * tiers won't catch that). Rather than auto-merging — which risks silently hiding a genuinely
+ * new opening — this just flags the closest match at the same company for human review in the
+ * Inbox (Phase 3).
+ */
+async function flagPossibleDuplicate(jobId: string, companyId: string, title: string): Promise<void> {
+  const [match] = await prisma.$queryRaw<{ id: string; sim: number }[]>`
+    SELECT id, similarity(title, ${title}) AS sim
+    FROM "Job"
+    WHERE "companyId" = ${companyId} AND id != ${jobId} AND "possibleDuplicateOfId" IS NULL
+    ORDER BY sim DESC
+    LIMIT 1
+  `;
+  if (match && match.sim >= DUPLICATE_TITLE_SIMILARITY_THRESHOLD) {
+    await prisma.job.update({ where: { id: jobId }, data: { possibleDuplicateOfId: match.id } });
   }
 }

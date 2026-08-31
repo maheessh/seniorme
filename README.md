@@ -3,11 +3,12 @@
 A personal career, project, and job-application command center. See [ARCHITECTURE.md](ARCHITECTURE.md)
 for the full system design, database schema, and phased implementation roadmap this project follows.
 
-**Status:** Phases 0–2 complete. Auth, database, base app shell, the web/worker process
-split, the company tracker, and career-page monitoring (Greenhouse/Lever/Ashby adapters,
-BullMQ scheduler + worker, manual refresh, SSRF/robots.txt-safe fetching) are all working
-end-to-end. Remaining feature phases (inbox, pipeline, imports, etc.) build on top of this
-incrementally — see `ARCHITECTURE.md` §14 for the roadmap.
+**Status:** Phases 0–3 complete. Auth, database, base app shell, the web/worker process
+split, the company tracker, career-page monitoring (Greenhouse/Lever/Ashby adapters, BullMQ
+scheduler + worker, manual refresh, SSRF/robots.txt-safe fetching), and the job discovery
+inbox (keyboard-driven triage, fuzzy-duplicate flagging, activity logging) are all working
+end-to-end. Remaining feature phases (pipeline, imports, projects/goals, analytics, etc.)
+build on top of this incrementally — see `ARCHITECTURE.md` §14 for the roadmap.
 
 ## Stack
 
@@ -90,14 +91,17 @@ packages/
 
 ## Known limitations
 
-- Companies (Phase 1) and career-page monitoring (Phase 2) have full functionality; jobs
-  inbox, applications, projects, and goals do not yet — those pages are intentionally simple
-  placeholders that name the phase they arrive in.
+- Companies (Phase 1), career-page monitoring (Phase 2), and the discovery inbox (Phase 3)
+  have full functionality; the application pipeline (beyond the Application row the inbox's
+  "Apply" action creates), projects, and goals do not yet — those pages are intentionally
+  simple placeholders that name the phase they arrive in.
 - Only Greenhouse, Lever, and Ashby career sites are supported so far. Other URLs are saved
   and clearly flagged as "no adapter available yet" rather than silently failing or faking data.
 - Company logos are derived automatically from the domain (via DuckDuckGo's icon service) at
   create/update time — there's no manual upload path, by design.
-- Discovered jobs land in the database but there's no inbox UI to triage them yet (Phase 3).
+- Fuzzy-duplicate detection (pg_trgm title similarity) flags a possible repost for review in
+  the Inbox but never auto-merges — dismissing the flag just clears it, it doesn't teach the
+  matcher anything.
 - No automated test suite yet — the test strategy is defined in `ARCHITECTURE.md` §12; the
-  scraper/dedup/failure-path logic has been manually verified against live boards during
-  development (see commit history) but isn't covered by CI-run tests yet.
+  scraper/dedup/failure-path/fuzzy-match logic has been manually verified end-to-end against
+  live boards during development (see commit history) but isn't covered by CI-run tests yet.

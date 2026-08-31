@@ -195,6 +195,8 @@ model Job {
   inboxStatus        InboxStatus   @default(NEW)
   isRemoved          Boolean       @default(false)
   possibleDuplicateOfId String?
+  possibleDuplicateOf   Job?       @relation("JobDuplicates", fields: [possibleDuplicateOfId], references: [id])
+  duplicateCandidates   Job[]      @relation("JobDuplicates")
 
   application Application?
   activity    ActivityEvent[]
@@ -202,6 +204,7 @@ model Job {
   @@unique([companyId, externalJobId])
   @@index([companyId, inboxStatus])
   @@index([discoveredAt])
+  @@index([title(ops: raw("gin_trgm_ops"))], type: Gin)
 }
 
 model Application {
