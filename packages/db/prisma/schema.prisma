@@ -1,0 +1,337 @@
+generator client {
+  provider        = "prisma-client-js"
+  output          = "../src/generated"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  extensions = [pg_trgm]
+}
+
+// -------------------- Enums --------------------
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum EmploymentType {
+  INTERNSHIP
+  NEW_GRAD
+  FULL_TIME
+  CONTRACT
+}
+
+enum WorkMode {
+  REMOTE
+  HYBRID
+  ONSITE
+  UNKNOWN
+}
+
+enum SourceType {
+  GREENHOUSE
+  LEVER
+  ASHBY
+  SMARTRECRUITERS
+  WORKDAY
+  CUSTOM_JSONLD
+  CUSTOM_HTML
+}
+
+enum ScrapeStatus {
+  SUCCESS
+  PARTIAL_SUCCESS
+  FAILURE
+}
+
+enum InboxStatus {
+  NEW
+  INTERESTED
+  SAVED
+  NOT_INTERESTED
+  APPLIED
+  IGNORED
+}
+
+enum ApplicationStage {
+  DISCOVERED
+  INTERESTED
+  PREPARING
+  APPLIED
+  OA
+  RECRUITER_SCREEN
+  INTERVIEW
+  FINAL_INTERVIEW
+  OFFER
+  REJECTED
+  WITHDRAWN
+  CLOSED
+}
+
+enum ProjectStatus {
+  IDEA
+  PLANNING
+  BUILDING
+  TESTING
+  COMPLETED
+}
+
+enum GoalCategory {
+  PROJECT
+  CODING_PRACTICE
+  APPLICATIONS
+  INTERVIEW_PREP
+  LEARNING
+  RESUME
+  COURSEWORK
+  OTHER
+}
+
+enum GoalStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+  ABANDONED
+}
+
+enum NotificationType {
+  NEW_MATCHING_JOB
+  DEADLINE_APPROACHING
+  FOLLOW_UP_DUE
+  INTERVIEW_APPROACHING
+  GOAL_DEADLINE
+  SCRAPER_FAILING
+}
+
+// -------------------- Models --------------------
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String?
+  createdAt    DateTime @default(now())
+}
+
+model Company {
+  id                String   @id @default(cuid())
+  name              String
+  domain            String?  @unique
+  logoUrl           String?
+  website           String?
+  location          String?
+  industry          String?
+  priority          Priority @default(MEDIUM)
+  notes             String?
+  rolesOfInterest   String[]
+  monitoringEnabled Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  careerSources CareerSource[]
+  jobs          Job[]
+  applications  Application[]
+  contacts      Contact[]
+}
+
+model CareerSource {
+  id                  String     @id @default(cuid())
+  companyId           String
+  company             Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  url                 String
+  sourceType          SourceType @default(CUSTOM_HTML)
+  checkFrequencyMin   Int        @default(1440)
+  isActive            Boolean    @default(true)
+  lastCheckedAt       DateTime?
+  lastSuccessAt       DateTime?
+  consecutiveFailures Int        @default(0)
+  lastError           String?
+  createdAt           DateTime   @default(now())
+
+  scrapeRuns ScrapeRun[]
+  jobs       Job[]
+
+  @@unique([companyId, url])
+}
+
+model ScrapeRun {
+  id             String       @id @default(cuid())
+  careerSourceId String
+  careerSource   CareerSource @relation(fields: [careerSourceId], references: [id], onDelete: Cascade)
+  startedAt      DateTime     @default(now())
+  finishedAt     DateTime?
+  status         ScrapeStatus
+  jobsFound      Int          @default(0)
+  jobsNew        Int          @default(0)
+  errorMessage   String?
+  triggeredBy    String
+
+  @@index([careerSourceId, startedAt])
+}
+
+model Job {
+  id                 String        @id @default(cuid())
+  companyId          String
+  company            Company       @relation(fields: [companyId], references: [id])
+  careerSourceId     String?
+  careerSource       CareerSource? @relation(fields: [careerSourceId], references: [id])
+
+  title              String
+  location           String?
+  workMode           WorkMode      @default(UNKNOWN)
+  employmentType     EmploymentType?
+  url                String
+  canonicalUrlHash   String        @unique
+  externalJobId      String?
+  descriptionRaw     String?
+  descriptionHash    String?
+  salaryMin          Int?
+  salaryMax          Int?
+  postedAt           DateTime?
+  discoveredAt       DateTime      @default(now())
+  inboxStatus        InboxStatus   @default(NEW)
+  isRemoved          Boolean       @default(false)
+  possibleDuplicateOfId String?
+
+  application Application?
+  activity    ActivityEvent[]
+
+  @@unique([companyId, externalJobId])
+  @@index([companyId, inboxStatus])
+  @@index([discoveredAt])
+}
+
+model Application {
+  id                  String            @id @default(cuid())
+  jobId               String            @unique
+  job                 Job               @relation(fields: [jobId], references: [id])
+  companyId           String
+  company             Company           @relation(fields: [companyId], references: [id])
+
+  stage               ApplicationStage  @default(DISCOVERED)
+  appliedAt           DateTime?
+  deadline            DateTime?
+  followUpDate        DateTime?
+  resumeVersion       String?
+  coverLetter         String?
+  recruiterContactId  String?
+  contact             Contact?          @relation(fields: [recruiterContactId], references: [id])
+  notes               String?
+  descriptionSnapshot String?
+
+  events    ApplicationEvent[]
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+
+  @@index([stage])
+  @@index([deadline])
+}
+
+model ApplicationEvent {
+  id            String            @id @default(cuid())
+  applicationId String
+  application   Application       @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  fromStage     ApplicationStage?
+  toStage       ApplicationStage
+  note          String?
+  occurredAt    DateTime          @default(now())
+
+  @@index([applicationId, occurredAt])
+}
+
+model Contact {
+  id          String   @id @default(cuid())
+  companyId   String
+  company     Company  @relation(fields: [companyId], references: [id])
+  name        String
+  role        String?
+  email       String?
+  linkedInUrl String?
+  notes       String?
+
+  applications Application[]
+}
+
+model Project {
+  id              String        @id @default(cuid())
+  name            String
+  description     String?
+  repoUrl         String?
+  demoUrl         String?
+  technologies    String[]
+  status          ProjectStatus @default(IDEA)
+  priority        Priority      @default(MEDIUM)
+  startDate       DateTime?
+  targetDate      DateTime?
+  progressPercent Int           @default(0)
+  notes           String?
+
+  tasks     ProjectTask[]
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+}
+
+model ProjectTask {
+  id        String    @id @default(cuid())
+  projectId String
+  project   Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  title     String
+  isDone    Boolean   @default(false)
+  dueDate   DateTime?
+  order     Int       @default(0)
+}
+
+model Goal {
+  id           String       @id @default(cuid())
+  title        String
+  category     GoalCategory
+  targetValue  Int?
+  currentValue Int          @default(0)
+  deadline     DateTime?
+  priority     Priority     @default(MEDIUM)
+  status       GoalStatus   @default(NOT_STARTED)
+  notes        String?
+
+  milestones GoalMilestone[]
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+}
+
+model GoalMilestone {
+  id      String    @id @default(cuid())
+  goalId  String
+  goal    Goal      @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  title   String
+  isDone  Boolean   @default(false)
+  dueDate DateTime?
+}
+
+model ActivityEvent {
+  id         String   @id @default(cuid())
+  type       String
+  entityType String
+  entityId   String
+  jobId      String?
+  job        Job?     @relation(fields: [jobId], references: [id])
+  summary    String
+  metadata   Json?
+  occurredAt DateTime @default(now())
+
+  @@index([occurredAt])
+  @@index([entityType, entityId])
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  type      NotificationType
+  title     String
+  body      String?
+  linkUrl   String?
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  @@index([isRead, createdAt])
+}

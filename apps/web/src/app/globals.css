@@ -1,0 +1,133 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --radius: 0.875rem;
+
+  --background: #fbfaf8;
+  --foreground: #171a21;
+
+  --card: #ffffff;
+  --card-foreground: #171a21;
+
+  --muted: #f1efec;
+  --muted-foreground: #6b7078;
+
+  --border: #e7e5e1;
+  --input: #e7e5e1;
+  --ring: #6d7cff;
+
+  --primary: #4f5bff;
+  --primary-foreground: #ffffff;
+
+  --secondary: #f1efec;
+  --secondary-foreground: #171a21;
+
+  --destructive: #d64545;
+  --destructive-foreground: #ffffff;
+
+  --success: #1a9e6a;
+  --warning: #d98b1c;
+
+  /* Cluely-inspired soft sky-to-sunset hero gradient, for the dashboard header banner */
+  --hero-gradient: linear-gradient(135deg, #eaf2ff 0%, #f3ecff 35%, #ffe9d9 70%, #ffdfc9 100%);
+  --hero-foreground: #171a21;
+
+  --glass-bg: rgba(255, 255, 255, 0.6);
+  --glass-border: rgba(23, 26, 33, 0.08);
+}
+
+.dark {
+  --background: #0b0c10;
+  --foreground: #edeef2;
+
+  --card: #14161c;
+  --card-foreground: #edeef2;
+
+  --muted: #1b1e26;
+  --muted-foreground: #9497a3;
+
+  --border: rgba(255, 255, 255, 0.08);
+  --input: rgba(255, 255, 255, 0.12);
+  --ring: #7c89ff;
+
+  --primary: #6d7cff;
+  --primary-foreground: #0b0c10;
+
+  --secondary: #1b1e26;
+  --secondary-foreground: #edeef2;
+
+  --destructive: #ef6a6a;
+  --destructive-foreground: #14161c;
+
+  --success: #3ecf8e;
+  --warning: #eab357;
+
+  /* dark "glass panel" hero — deep gradient behind a translucent blurred card */
+  --hero-gradient: radial-gradient(120% 140% at 20% -10%, #23283a 0%, #14161c 45%, #0b0c10 100%);
+  --hero-foreground: #edeef2;
+
+  --glass-bg: rgba(20, 22, 28, 0.65);
+  --glass-border: rgba(255, 255, 255, 0.08);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-display: var(--font-display);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+}
+
+@layer utilities {
+  .hero-surface {
+    background: var(--hero-gradient);
+    color: var(--hero-foreground);
+  }
+
+  .glass-panel {
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
+
+  .font-display {
+    font-family: var(--font-display), ui-serif, Georgia, serif;
+  }
+}

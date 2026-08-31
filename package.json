@@ -1,0 +1,24 @@
+{
+  "name": "career-command-center",
+  "private": true,
+  "version": "0.1.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev:web": "pnpm --filter @ccc/web dev",
+    "dev:worker": "pnpm --filter @ccc/worker dev",
+    "build": "pnpm --filter @ccc/db generate && pnpm --filter @ccc/web build && pnpm --filter @ccc/worker build",
+    "db:generate": "pnpm --filter @ccc/db generate",
+    "db:migrate": "pnpm --filter @ccc/db migrate",
+    "db:seed": "pnpm --filter @ccc/db seed",
+    "db:studio": "pnpm --filter @ccc/db studio",
+    "lint": "pnpm -r lint",
+    "test": "pnpm -r test",
+    "docker:up": "docker compose up -d postgres redis",
+    "docker:down": "docker compose down"
+  },
+  "devDependencies": {
+    "dotenv-cli": "^11.0.0"
+  }
+}
