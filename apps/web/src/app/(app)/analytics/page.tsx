@@ -1,8 +1,11 @@
+import type { Metadata } from "next";
 import { HorizontalBarChart } from "@/components/charts/horizontal-bar-chart";
 import { WeeklyBarChart } from "@/components/charts/weekly-bar-chart";
 import { Card, CardContent, CardHeader, CardTitle, CardValue } from "@/components/ui/card";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { getAnalyticsData } from "@/lib/server/services/analytics";
+
+export const metadata: Metadata = { title: "Analytics" };
 
 function pct(value: number): string {
   return `${Math.round(value * 100)}%`;

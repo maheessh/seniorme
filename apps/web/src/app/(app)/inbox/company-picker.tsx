@@ -46,6 +46,7 @@ export function CompanyPicker({
   return (
     <div className="relative">
       <Input
+        id="companyPicker"
         value={query}
         onChange={(event) => onChange(event.target.value)}
         onFocus={() => setOpen(true)}

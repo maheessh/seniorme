@@ -1,8 +1,11 @@
 import type { InboxStatus } from "@ccc/db";
+import type { Metadata } from "next";
 import { countInboxJobs, INBOX_STATUSES, listInboxJobs } from "@/lib/server/services/inbox";
 import { ImportJobDialog } from "./import-job-dialog";
 import { InboxList } from "./inbox-list";
 import { StatusTabs } from "./status-tabs";
+
+export const metadata: Metadata = { title: "Inbox" };
 
 function parseStatus(value: string | undefined): InboxStatus {
   return value && (INBOX_STATUSES as string[]).includes(value) ? (value as InboxStatus) : "NEW";
@@ -26,7 +29,7 @@ export default async function InboxPage({
   const [counts, jobs] = await Promise.all([countInboxJobs(), listInboxJobs(status)]);
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex h-full flex-col gap-5">
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="font-display text-2xl">Inbox</h1>
@@ -45,7 +48,9 @@ export default async function InboxPage({
 
       <StatusTabs active={status} counts={counts} />
 
-      <InboxList key={status} jobs={jobs} emptyLabel={EMPTY_LABEL[status]} />
+      <div className="min-h-0 flex-1">
+        <InboxList key={status} jobs={jobs} emptyLabel={EMPTY_LABEL[status]} />
+      </div>
     </div>
   );
 }

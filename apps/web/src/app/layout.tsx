@@ -21,7 +21,7 @@ const displayFont = Fraunces({
 });
 
 export const metadata: Metadata = {
-  title: "Command Center",
+  title: { template: "%s · Command Center", default: "Command Center" },
   description: "Personal career, project, and job-application command center.",
 };
 

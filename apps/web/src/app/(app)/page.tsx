@@ -1,6 +1,9 @@
 import { prisma } from "@ccc/db";
+import type { Metadata } from "next";
 import { Card, CardContent, CardHeader, CardTitle, CardValue } from "@/components/ui/card";
 import { ProgressBar } from "@/components/ui/progress-bar";
+
+export const metadata: Metadata = { title: "Dashboard" };
 
 async function getDashboardData() {
   const startOfToday = new Date();

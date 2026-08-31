@@ -1,8 +1,11 @@
 import { Building2, Plus } from "lucide-react";
+import type { Metadata } from "next";
 import { EmptyState } from "@/components/empty-state";
 import { Button } from "@/components/ui/button";
 import { listCompanies } from "@/lib/server/services/companies";
 import { CompaniesToolbar } from "./companies-toolbar";
+
+export const metadata: Metadata = { title: "Companies" };
 import { CompanyCard } from "./company-card";
 import { CompanyFormDialog } from "./company-form-dialog";
 import { CompanyTable } from "./company-table";

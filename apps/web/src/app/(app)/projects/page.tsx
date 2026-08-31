@@ -1,8 +1,11 @@
 import type { ProjectStatus } from "@ccc/db";
 import { PROJECT_STATUSES } from "@ccc/shared";
 import { FolderKanban, Plus } from "lucide-react";
+import type { Metadata } from "next";
 import { EmptyState } from "@/components/empty-state";
 import { Button } from "@/components/ui/button";
+
+export const metadata: Metadata = { title: "Projects" };
 import { listProjects } from "@/lib/server/services/projects";
 import { ProjectCard } from "./project-card";
 import { ProjectFormDialog } from "./project-form-dialog";

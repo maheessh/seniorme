@@ -18,12 +18,13 @@ computed from real Prisma aggregations, no dummy data), and notifications (in-ap
 center with an unread badge in the sidebar; triggers for new matching jobs, approaching
 application deadlines, due follow-ups, upcoming interviews, goal deadlines, and repeated
 scraper failures, all dedup-aware so the same event never re-notifies) are all working
-end-to-end. Phase 9 (hardening) is in progress — a global command palette (`⌘K`/`Ctrl+K`,
+end-to-end. **Phase 9 (hardening) is complete**: a global command palette (`⌘K`/`Ctrl+K`,
 search-to-jump across every page), keyboard-operable Kanban drag-and-drop, a WCAG-AA color
-contrast pass, and a growing test suite (117 tests: unit tests for the scraper package,
-integration tests against a real database for the worker's dedup/notification/cleanup logic —
-see "Running tests"). See `ARCHITECTURE.md` §14 for the full roadmap (an accessibility audit
-beyond the fixes already made, E2E tests, and deployment docs remain).
+contrast pass, a virtualized Inbox list (career-page pagination means the New tab routinely
+holds 100+ jobs — only the rows near the viewport are ever mounted), a per-page browser tab
+title on every route, a skip-to-content link, and a 117-test unit/integration suite plus a
+9-scenario Playwright E2E suite covering the flows in `ARCHITECTURE.md` §12 (see "Running
+tests"). Phase 10 (deployment docs) is next — see `ARCHITECTURE.md` §14 for the roadmap.
 
 ## Stack
 
@@ -101,6 +102,30 @@ Then `pnpm test` (or `pnpm --filter @ccc/worker test`) runs everything — `apps
 points the tests at `ccc_test` regardless of what's in `.env`, and each test file truncates its
 tables between tests via `apps/worker/src/test-helpers.ts`.
 
+### E2E tests (Playwright)
+
+`apps/web/e2e` covers the flows in `ARCHITECTURE.md` §12: login → add a company → add a career
+source → trigger a scrape, a discovered job moving from Inbox through triage into the Pipeline,
+dragging a card across Kanban columns (verified to actually persist server-side, not just in
+optimistic client state), creating a project/goal and updating progress, and job-link import's
+manual-fallback path. Uses the same `ccc_test` database as the worker's integration tests (set
+that up first, per above) — a `global.setup.ts` project reseeds it with fixture data and signs
+in once, saving auth state for every other test to reuse. Runs the real app via `next dev` on
+a dedicated port (3100) so it doesn't collide with a `pnpm dev:web` you already have running —
+Next.js's dev server refuses to start a second instance for the same project directory, so if
+you hit "Another next dev server is already running," that's `pnpm dev:web`, not a real
+conflict; stop it first (E2E doesn't need it, and the two use different databases anyway).
+
+Deliberately doesn't depend on live external sites: postings are seeded directly into the test
+database (this app's own UI/data-flow is what's being tested, not scraper reliability against a
+real career page — that's `packages/scraper`'s job), and the job-import fallback test points at
+`127.0.0.1`, which the SSRF guard blocks before any real request goes out, making that failure
+path deterministic instead of depending on some external site actually being unreachable.
+
+```bash
+pnpm --filter @ccc/web test:e2e
+```
+
 ## Monorepo layout
 
 ```
@@ -127,29 +152,31 @@ packages/
 
 ## Known limitations
 
-- Companies (Phase 1) through notifications (Phase 8) all have full functionality. Phase 9
-  (hardening) is in progress. `packages/scraper` has an 86-test Vitest unit suite covering
-  URL/content normalization, ATS-type detection, both JSON-LD extraction paths, the generic
-  HTML-link heuristic (including its "not enough real matches" and "self-referential/off-host
-  link" guard rails), `rel="next"` pagination, the iCIMS adapter's parsing, and the SSRF guard's
-  IP-blocking logic — writing that last suite caught two real bugs (IPv6-literal blocking was
-  silently unreachable due to how `URL.hostname` brackets IPv6 addresses, and an IPv4-mapped IPv6
-  address in its URL-normalized hex form slipped past the private-IP check), both fixed and now
-  regression-tested. `apps/worker` has a 31-test integration suite against a real Postgres test
-  database covering the dedup/upsert edge cases from `ARCHITECTURE.md` §12 (duplicate postings
-  across runs, a changed URL with the same external ID, a removed-then-relisted job, missing
-  metadata, fuzzy-duplicate flagging), the ignored-job auto-purge, and notification dedup
-  (including "scheduler tick fires twice" not double-notifying). A command palette
-  (`apps/web/src/components/command-palette.tsx`) is mounted globally — `⌘K`/`Ctrl+K` from
-  anywhere, type to filter, arrow keys + Enter or click to jump to a page. The Kanban board's
-  drag-and-drop is now keyboard-operable (dnd-kit's `KeyboardSensor`: Tab to a card, Space to
-  pick up, arrows to move between columns, Space to drop, Escape to cancel), with screen-reader
-  announcements naming the actual job/stage rather than raw IDs. An accessibility pass over the
-  light-mode color tokens found `--destructive`/`--success`/`--warning` all fell short of WCAG
-  AA's 4.5:1 contrast for normal text in at least one real usage (as low as 2.4:1 for warning
-  text inside its own badge) — all three darkened to clear 4.5:1 in both plain-text and
-  badge-tinted contexts; dark mode already passed. This wasn't an exhaustive accessibility audit
-  (E2E tests and a broader a11y pass remain); deployment docs (Phase 10) also remain.
+- Companies (Phase 1) through hardening (Phase 9) all have full functionality; deployment docs
+  (Phase 10) are the only remaining roadmap item. Test coverage: `packages/scraper` has an
+  86-test Vitest unit suite (URL/content normalization, ATS-type detection, both JSON-LD
+  extraction paths, the generic HTML-link heuristic's guard rails, `rel="next"` pagination, the
+  iCIMS adapter, and the SSRF guard's IP-blocking — writing that last suite caught two real bugs,
+  both fixed: IPv6-literal blocking was silently unreachable due to how `URL.hostname` brackets
+  IPv6 addresses, and an IPv4-mapped IPv6 address in its URL-normalized hex form slipped past the
+  private-IP check). `apps/worker` has a 31-test integration suite against a real Postgres test
+  database (the dedup/upsert edge cases from `ARCHITECTURE.md` §12, the ignored-job auto-purge,
+  notification dedup). `apps/web` has a 9-scenario Playwright E2E suite covering §12's listed
+  flows end-to-end against the real running app. A command palette (`⌘K`/`Ctrl+K` from anywhere,
+  type to filter, arrow keys + Enter or click to jump) is mounted globally. The Kanban board's
+  drag-and-drop is keyboard-operable (dnd-kit's `KeyboardSensor`: Tab to a card, Space to pick
+  up, arrows to move between columns, Space to drop, Escape to cancel), with screen-reader
+  announcements naming the actual job/stage rather than raw IDs. The Inbox list is virtualized
+  (`@tanstack/react-virtual`) — with career-page pagination now pulling in a full board per
+  company, the New tab routinely holds 100+ jobs, and only the rows near the viewport are
+  mounted regardless of list length. Every route has its own browser-tab title, and there's a
+  skip-to-content link for keyboard users. An accessibility pass over the light-mode color
+  tokens found `--destructive`/`--success`/`--warning` all fell short of WCAG AA's 4.5:1 contrast
+  for normal text in at least one real usage (as low as 2.4:1 for warning text inside its own
+  badge) — all three darkened to clear 4.5:1 in both plain-text and badge-tinted contexts; dark
+  mode already passed. This was a targeted pass on the issues found, not an exhaustive WCAG audit
+  (e.g. no screen-reader testing pass, no `prefers-reduced-motion` review) — a candidate for
+  further work post-Phase-10 if it matters more than shipping.
 - "Scrape now" always re-fetches a source's full listing — none of the supported ATS/HTML
   sources expose a "changes since" endpoint, so there's no partial/incremental fetch mode to
   configure. What it does skip is redundant *work*: postings that already exist (by canonical

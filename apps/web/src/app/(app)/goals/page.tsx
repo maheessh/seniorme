@@ -1,8 +1,11 @@
 import type { GoalStatus } from "@ccc/db";
 import { GOAL_STATUSES } from "@ccc/shared";
 import { Plus, Target } from "lucide-react";
+import type { Metadata } from "next";
 import { EmptyState } from "@/components/empty-state";
 import { Button } from "@/components/ui/button";
+
+export const metadata: Metadata = { title: "Goals" };
 import { listGoals } from "@/lib/server/services/goals";
 import { GoalCard } from "./goal-card";
 import { GoalFormDialog } from "./goal-form-dialog";

@@ -1,7 +1,6 @@
 import type { InboxStatus } from "@ccc/db";
 import { differenceInDays, formatDistanceToNow } from "date-fns";
 import { Archive, Bookmark, CheckCircle2, ExternalLink, X } from "lucide-react";
-import { forwardRef } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CompanyLogo } from "@/components/company-logo";
@@ -30,23 +29,27 @@ const WORK_MODE_LABEL: Record<string, string> = {
   UNKNOWN: "",
 };
 
-export const InboxRow = forwardRef<
-  HTMLDivElement,
-  {
-    job: InboxJob;
-    focused: boolean;
-    expanded: boolean;
-    onFocus: () => void;
-    onToggleExpand: () => void;
-    onAct: (status: InboxStatus) => void;
-    onDismissDuplicate: () => void;
-  }
->(function InboxRow({ job, focused, expanded, onFocus, onToggleExpand, onAct, onDismissDuplicate }, ref) {
+export function InboxRow({
+  job,
+  focused,
+  expanded,
+  onFocus,
+  onToggleExpand,
+  onAct,
+  onDismissDuplicate,
+}: {
+  job: InboxJob;
+  focused: boolean;
+  expanded: boolean;
+  onFocus: () => void;
+  onToggleExpand: () => void;
+  onAct: (status: InboxStatus) => void;
+  onDismissDuplicate: () => void;
+}) {
   const postedStale = job.postedAt ? differenceInDays(new Date(), job.postedAt) > STALE_POSTING_DAYS : false;
 
   return (
     <div
-      ref={ref}
       onClick={onFocus}
       className={cn(
         "flex flex-col gap-2 rounded-xl border p-4 transition-colors cursor-pointer",
@@ -135,4 +138,4 @@ export const InboxRow = forwardRef<
       ) : null}
     </div>
   );
-});
+}

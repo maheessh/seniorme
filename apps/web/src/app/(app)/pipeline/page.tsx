@@ -1,8 +1,11 @@
 import type { ApplicationStage } from "@ccc/db";
 import { ALL_STAGES } from "@ccc/shared";
 import { Kanban } from "lucide-react";
+import type { Metadata } from "next";
 import { EmptyState } from "@/components/empty-state";
 import { getApplicationsByStage, listApplications } from "@/lib/server/services/applications";
+
+export const metadata: Metadata = { title: "Pipeline" };
 import { PipelineBoard } from "./pipeline-board";
 import { PipelineTable } from "./pipeline-table";
 import { PipelineToolbar } from "./pipeline-toolbar";
