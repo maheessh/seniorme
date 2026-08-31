@@ -3,16 +3,19 @@
 A personal career, project, and job-application command center. See [ARCHITECTURE.md](ARCHITECTURE.md)
 for the full system design, database schema, and phased implementation roadmap this project follows.
 
-**Status:** Phases 0–6 complete. Auth, database, base app shell, the web/worker process
+**Status:** Phases 0–7 complete. Auth, database, base app shell, the web/worker process
 split, the company tracker, career-page monitoring (Greenhouse/Lever/Ashby adapters plus
 generic JSON-LD/HTML-heuristic fallback tiers for custom sites, BullMQ scheduler + worker,
 manual refresh, SSRF/robots.txt-safe fetching including `Crawl-delay`), the job discovery
 inbox (keyboard-driven triage, fuzzy-duplicate flagging, activity logging), the application
 pipeline (drag-and-drop Kanban + table views, stage history, contacts, deadlines, notes),
-job-link import (tiered extraction with company dedup and a manual-entry fallback), and
-projects/goals (task/milestone checklists, quick-increment progress, dashboard widgets) are
-all working end-to-end. Remaining feature phases (analytics, notifications) build on top of
-this incrementally — see `ARCHITECTURE.md` §14 for the roadmap.
+job-link import (tiered extraction with company dedup and a manual-entry fallback),
+projects/goals (task/milestone checklists, quick-increment progress, dashboard widgets), and
+analytics (funnel conversion rates, applications-per-week trend, pipeline-by-stage and
+most-active-companies breakdowns, average time per stage, goal/project completion — all
+computed from real Prisma aggregations, no dummy data) are all working end-to-end. Remaining
+feature phases (notifications) build on top of this incrementally — see `ARCHITECTURE.md`
+§14 for the roadmap.
 
 ## Stack
 
@@ -95,9 +98,9 @@ packages/
 
 ## Known limitations
 
-- Companies (Phase 1) through projects/goals (Phase 6) all have full functionality; analytics
-  and notifications do not yet — those pages are intentionally simple placeholders that name
-  the phase they arrive in.
+- Companies (Phase 1) through analytics (Phase 7) all have full functionality; notifications
+  do not yet — that page is an intentionally simple placeholder that names the phase it
+  arrives in.
 - Job-link import's Claude-assisted extraction tier only runs when `ANTHROPIC_API_KEY` is set
   in `.env` — without it, extraction still works via the ATS-API/JSON-LD/OpenGraph tiers, just
   with a weaker fallback for sites that use none of those (verified end-to-end against a
