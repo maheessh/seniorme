@@ -221,10 +221,13 @@ packages/
   a headless-Chromium tier (verified against a real Paycom ATS board) — the one thing it doesn't
   do is drive JS-only pagination (clicking a "next page" control), so it only ever discovers/
   refreshes postings visible on the initial render and never marks existing ones as removed for
-  that source (see `packages/scraper/src/adapters/headless.ts`). Needs a real Chromium binary at
-  runtime — run `npx playwright install chromium` once (`pnpm --filter @ccc/scraper exec
-  playwright install chromium` from the repo root) before `pnpm dev:worker` will hit this tier
-  successfully; the worker's Docker image already bundles it.
+  that source (see `packages/scraper/src/adapters/headless.ts`). The same tier also covers a
+  static fetch getting blocked outright (a plain `fetch` hitting a 403/bot-check that a real
+  browser sails through, verified against a live Cloudflare-fronted careers page) — one fallback
+  tier for both failure modes, rather than new per-site code each time a new platform blocks the
+  plain fetch. Needs a real Chromium binary at runtime — run `npx playwright install chromium`
+  once (`pnpm --filter @ccc/scraper exec playwright install chromium` from the repo root) before
+  `pnpm dev:worker` will hit this tier successfully; the worker's Docker image already bundles it.
 - Company logos are derived automatically from the domain (via DuckDuckGo's icon service) at
   create/update time — there's no manual upload path, by design.
 - Fuzzy-duplicate detection (pg_trgm title similarity) flags a possible repost for review in

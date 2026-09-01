@@ -6,6 +6,7 @@ import {
   hashUrl,
   isAllowedByRobots,
   resolveAdapter,
+  SsrfBlockedError,
   type RawJobPosting,
 } from "@ccc/scraper";
 import { logger } from "./logger";
@@ -52,20 +53,31 @@ export async function processScrapeSource(
       // on the listing page, then a conservative HTML-link heuristic, following `rel="next"`
       // pagination across pages so multi-page boards (common — e.g. ~30 postings/page) aren't
       // silently truncated to just the first page.
-      let generic = await fetchGenericBoardWithPagination(source.url);
+      let generic = null;
+      let staticFetchError: string | null = null;
+      try {
+        generic = await fetchGenericBoardWithPagination(source.url);
+      } catch (error) {
+        if (error instanceof SsrfBlockedError) throw error; // a real browser hits the same guard — not worth retrying
+        staticFetchError = error instanceof Error ? error.message : String(error);
+      }
+
       if (!generic) {
-        // Static fetch found nothing at all — the page likely renders its listings with
-        // JavaScript. Last resort: load it in a real (headless) browser and re-run the same
-        // extraction against the rendered DOM. Slower and heavier than the tiers above, so it's
-        // only tried once those have already failed.
-        generic = await fetchWithHeadlessBrowser(source.url);
+        // Either the static fetch found nothing, or it failed outright — most often a bot-check
+        // (a plain `fetch` gets a 403/challenge that a real browser sails through) but sometimes
+        // JS-rendered content with no server-rendered fallback either way. Last resort: load the
+        // page in a real headless browser and re-run the same extraction against the rendered
+        // DOM. Slower and heavier than the tiers above, so only tried once they've already
+        // failed — this one tier covers both failure modes rather than needing separate
+        // site-specific handling for each.
+        generic = await fetchWithHeadlessBrowser(source.url).catch(() => null);
       }
       if (!generic) {
         throw new Error(
-          "Couldn't find any job postings on this page, even after rendering it in a headless " +
-            "browser. Greenhouse, Lever, and Ashby boards are supported directly; other sites " +
-            "need either schema.org JobPosting data or a clear list of job links somewhere in " +
-            "the page.",
+          (staticFetchError ? `Static fetch failed (${staticFetchError}), and rendering` : "Rendering") +
+            " it in a headless browser also found no job postings. Greenhouse, Lever, and Ashby " +
+            "boards are supported directly; other sites need either schema.org JobPosting data " +
+            "or a clear list of job links somewhere in the rendered page.",
         );
       }
       resolvedType = generic.resolvedType;
