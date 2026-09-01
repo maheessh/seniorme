@@ -46,8 +46,10 @@ sidebar/topbar chrome and no gate in front of it.
   once its own `checkFrequencyMin` — 24h by default — has elapsed)
 - **Scraping**: `packages/scraper` — adapter registry (Greenhouse, Lever, Ashby, iCIMS today,
   plus generic JSON-LD/HTML-heuristic fallback tiers with `rel="next"` pagination for custom
-  sites), an SSRF-safe fetch wrapper (blocks private/loopback/link-local targets, even through
-  redirects), robots.txt compliance, and per-host rate limiting
+  sites, and a headless-Chromium tier as the last resort for JS-rendered pages), an SSRF-safe
+  fetch wrapper (blocks private/loopback/link-local targets, even through redirects — enforced
+  per-request inside the headless tier too, since a real browser fetches whatever the page tells
+  it to), robots.txt compliance, and per-host rate limiting
 - **Monorepo**: pnpm workspaces (`apps/web`, `apps/worker`, `packages/db`, `packages/shared`,
   `packages/scraper`)
 
@@ -63,17 +65,20 @@ sidebar/topbar chrome and no gate in front of it.
 # 1. Install dependencies
 pnpm install
 
-# 2. Copy the env template and fill in real values
+# 2. Install the Chromium binary for the scraper's headless-browser fallback tier (one-time)
+pnpm --filter @ccc/scraper exec playwright install chromium
+
+# 3. Copy the env template and fill in real values
 cp .env.example .env
 
-# 3. Start Postgres + Redis
+# 4. Start Postgres + Redis
 pnpm docker:up
 
-# 4. Generate the Prisma client and run the first migration
+# 5. Generate the Prisma client and run the first migration
 pnpm db:generate
 pnpm db:migrate
 
-# 5. Run the app (each in its own terminal)
+# 6. Run the app (each in its own terminal)
 pnpm dev:web      # http://localhost:3000
 pnpm dev:worker   # runs the scheduler + scrape queue consumer
 ```
@@ -209,12 +214,17 @@ packages/
   `scheduledAt`) rather than a single field on `Application` — a role can have several
   scheduled rounds (OA, screen, interview, final) over its lifetime, so the date belongs to
   the specific stage transition it's attached to, not the application as a whole.
-- Career-page monitoring supports Greenhouse, Lever, and Ashby directly, plus generic
+- Career-page monitoring supports Greenhouse, Lever, iCIMS, and Ashby directly, plus generic
   JSON-LD/HTML-heuristic fallback tiers for custom sites (verified against a real production
-  site — 30/30 postings extracted correctly, zero false positives). Pages that render their
-  job listings entirely client-side with no server-rendered content at all (no headless-browser
-  tier yet) are the one remaining gap, and fail with a clear, specific message rather than a
-  generic error.
+  site — 30/30 postings extracted correctly, zero false positives). Pages that render their job
+  listings entirely client-side, with no server-rendered content and no public API, fall back to
+  a headless-Chromium tier (verified against a real Paycom ATS board) — the one thing it doesn't
+  do is drive JS-only pagination (clicking a "next page" control), so it only ever discovers/
+  refreshes postings visible on the initial render and never marks existing ones as removed for
+  that source (see `packages/scraper/src/adapters/headless.ts`). Needs a real Chromium binary at
+  runtime — run `npx playwright install chromium` once (`pnpm --filter @ccc/scraper exec
+  playwright install chromium` from the repo root) before `pnpm dev:worker` will hit this tier
+  successfully; the worker's Docker image already bundles it.
 - Company logos are derived automatically from the domain (via DuckDuckGo's icon service) at
   create/update time — there's no manual upload path, by design.
 - Fuzzy-duplicate detection (pg_trgm title similarity) flags a possible repost for review in

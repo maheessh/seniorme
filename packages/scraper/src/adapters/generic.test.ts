@@ -83,6 +83,22 @@ describe("extractGenericBoardPostings — HTML-link heuristic tier", () => {
     expect(result?.postings).toHaveLength(3);
   });
 
+  it("uses a nested heading as the title for a 'clickable card' link wrapping title+tags+description", () => {
+    // Common on component-library-built sites: the whole card (title, tags, a description
+    // snippet) sits inside one <a>, so the anchor's own full text is way more than a title.
+    const card = (path: string, title: string) =>
+      `<a href="${path}"><div><h2>${title}</h2><span>Full Time</span>` +
+      `<p>${"Lorem ipsum dolor sit amet, a much longer description snippet than any real title. ".repeat(2)}</p>` +
+      `</div></a>`;
+    const html = [
+      card("/jobs/software-engineer-abc", "Software Engineer"),
+      card("/jobs/data-scientist-def", "Data Scientist"),
+      card("/jobs/product-manager-ghi", "Product Manager"),
+    ].join("\n");
+    const result = extractGenericBoardPostings(html, BASE_URL);
+    expect(result?.postings.map((p) => p.title)).toEqual(["Software Engineer", "Data Scientist", "Product Manager"]);
+  });
+
   it("de-duplicates the same href appearing more than once on the page", () => {
     const html = [
       `<a href="/jobs/software-engineer-abc">Software Engineer</a>`,

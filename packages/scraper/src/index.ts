@@ -8,4 +8,5 @@ export {
   fetchGenericBoardWithPagination,
   type GenericBoardResult,
 } from "./adapters/generic";
+export { fetchWithHeadlessBrowser } from "./adapters/headless";
 export { extractJobFromUrl, type ExtractedJobImport, type ImportSource } from "./import";

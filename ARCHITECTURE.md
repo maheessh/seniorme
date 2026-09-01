@@ -491,12 +491,19 @@ interface CareerSiteAdapter {
    distinct from `CUSTOM_JSONLD`, so lower-confidence data is visibly labeled as such. Verified
    against the same Waymo page (30 real postings, zero false positives from its JS asset
    references or self-referential search/filter links) and a synthetic false-positive check.
-8. **Playwright (headless)** *(not implemented)* — only needed when a page requires JS execution
-   to render postings at all (tiers 6–7 find nothing because the server sends an empty shell).
-   Deliberately deferred: heavier dependency (~300MB browser binary), slower/more fragile scrapes,
-   and most real custom career pages turned out to be reachable via tiers 6–7 without it. A
-   `CareerSource` that hits this case fails with a clear, honest message rather than a generic
-   error, and is a known, visible gap rather than a silent one.
+8. **Playwright (headless)** *(implemented)* — last resort, only tried when tiers 6–7 find
+   nothing because the page renders its listings with JavaScript and the server sends an empty
+   shell (e.g. a Paycom ATS board verified during implementation — OKC Thunder's career page).
+   Loads the page in real headless Chromium and re-runs the same JSON-LD/HTML-link extraction
+   against the rendered DOM. Every sub-request the page makes is checked against the same SSRF
+   guard as `safeFetch`, since a real browser will fetch whatever the page tells it to. Doesn't
+   drive JS-only pagination (clicking a "next page" control) — it only captures what's visible on
+   initial render, so its results are always marked incomplete (`AdapterFetchResult.complete:
+   false`) and never used for removal-detection, only for discovering/refreshing postings. Needs
+   a real Chromium binary at runtime (`npx playwright install chromium` locally); the worker's
+   Docker runner image moved from `node:22-alpine` to `mcr.microsoft.com/playwright:*-noble`
+   since Playwright's bundled Chromium isn't supported on Alpine's musl libc — verified by
+   building and running that image against a real board (see DEPLOYMENT.md).
 
 **Politeness note:** `Crawl-delay` in a site's `robots.txt`, when present, now overrides the
 default 1s per-host minimum spacing (capped at 30s) — discovered as a real gap while testing

@@ -77,7 +77,12 @@ function isPrivateIPv6(ip: string): boolean {
   return false;
 }
 
-async function assertPublicHost(hostname: string): Promise<void> {
+/**
+ * Exported for the headless-browser tier (see adapters/headless.ts), which can't route its
+ * page's own requests through safeFetch — it needs this same per-hostname check applied to
+ * every request a real browser makes on the page's behalf.
+ */
+export async function assertPublicHost(hostname: string): Promise<void> {
   // URL.hostname keeps the brackets around an IPv6 literal (e.g. "[::1]"), but net.isIP()
   // only recognizes the bare address — left unstripped, every IPv6-literal host falls through
   // to the dns.lookup() branch below, which just throws ENOTFOUND on the bracketed string

@@ -62,6 +62,17 @@ fixed as part of this work:
    single-tenant app (not something that would be safe to set blindly for a service routing
    arbitrary external hosts). Added `trustHost: true` to the shared auth config.
 
+> **Update:** the worker's `Dockerfile` later changed again — its `runner` stage moved from
+> `node:22-alpine` to `mcr.microsoft.com/playwright:*-noble` to support the scraper's
+> headless-Chromium fallback tier (`packages/scraper/src/adapters/headless.ts`), since
+> Playwright's bundled Chromium isn't supported on Alpine's musl libc. Verified the same way as
+> the rest of this document: built the image (`docker build -f apps/worker/Dockerfile .`) and ran
+> a real headless-Chromium fetch inside the resulting container against a live JS-rendered career
+> page, confirming the page rendered correctly. This does make the worker image noticeably
+> larger (the Playwright base image ships Chromium, Firefox, and WebKit even though only Chromium
+> is used) — acceptable for a single-user local/self-hosted tool, worth revisiting if image size
+> ever matters (e.g. trimming to a Chromium-only Playwright image).
+
 A seventh, unrelated issue surfaced by the same testing pass: the worker's `tsc` build was also
 compiling `*.test.ts` files into `dist/`, which Vitest then discovered and ran *in addition to*
 the real `src/*.test.ts` files — and the compiled copies hit the same extension-resolution

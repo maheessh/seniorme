@@ -1,6 +1,7 @@
 import { Prisma, prisma } from "@ccc/db";
 import {
   fetchGenericBoardWithPagination,
+  fetchWithHeadlessBrowser,
   hashContent,
   hashUrl,
   isAllowedByRobots,
@@ -51,13 +52,20 @@ export async function processScrapeSource(
       // on the listing page, then a conservative HTML-link heuristic, following `rel="next"`
       // pagination across pages so multi-page boards (common — e.g. ~30 postings/page) aren't
       // silently truncated to just the first page.
-      const generic = await fetchGenericBoardWithPagination(source.url);
+      let generic = await fetchGenericBoardWithPagination(source.url);
+      if (!generic) {
+        // Static fetch found nothing at all — the page likely renders its listings with
+        // JavaScript. Last resort: load it in a real (headless) browser and re-run the same
+        // extraction against the rendered DOM. Slower and heavier than the tiers above, so it's
+        // only tried once those have already failed.
+        generic = await fetchWithHeadlessBrowser(source.url);
+      }
       if (!generic) {
         throw new Error(
-          "Couldn't find any job postings on this page. Greenhouse, Lever, and Ashby boards " +
-            "are supported directly; other sites need either schema.org JobPosting data or a " +
-            "clear list of job links in the page's HTML — this page may render its listings " +
-            "with JavaScript, which isn't supported yet.",
+          "Couldn't find any job postings on this page, even after rendering it in a headless " +
+            "browser. Greenhouse, Lever, and Ashby boards are supported directly; other sites " +
+            "need either schema.org JobPosting data or a clear list of job links somewhere in " +
+            "the page.",
         );
       }
       resolvedType = generic.resolvedType;

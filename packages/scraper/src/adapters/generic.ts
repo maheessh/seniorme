@@ -62,7 +62,12 @@ function fromHtmlHeuristic(html: string, baseUrl: string): RawJobPosting[] {
     if (absolute.pathname === base.pathname) return;
     if (!JOB_PATH_RE.test(absolute.pathname)) return;
 
-    const text = $(el).text().trim().replace(/\s+/g, " ");
+    // A "clickable card" layout (common on component-library-built sites) wraps the whole card —
+    // title, tags, location, a description snippet — in one anchor, so the anchor's full text is
+    // way more than just a title. A heading inside it is almost always exactly the job title;
+    // only fall back to the anchor's own text for the simpler case of a plain text link.
+    const heading = $(el).find("h1, h2, h3, h4, h5, h6").first();
+    const text = (heading.length > 0 ? heading.text() : $(el).text()).trim().replace(/\s+/g, " ");
     if (!text || text.length < 4 || text.length > 150) return;
     if (GENERIC_LINK_TEXT.has(text.toLowerCase())) return;
 

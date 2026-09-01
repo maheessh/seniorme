@@ -24,7 +24,13 @@ RUN pnpm --filter @ccc/db generate
 # a build-time type-check gate, failing the image build on a type error rather than shipping one.
 RUN pnpm --filter @ccc/worker build
 
-FROM base AS runner
+# Career-page monitoring's headless-browser fallback tier (packages/scraper/src/adapters/
+# headless.ts) needs a real Chromium binary at runtime. Playwright's bundled Chromium isn't
+# supported on Alpine (musl libc), so the runner alone moves to Microsoft's official Playwright
+# image — Debian-based, with a Chromium build already matching the exact `playwright` npm
+# version pinned in packages/scraper/package.json. Keep this tag in lockstep with that version.
+FROM mcr.microsoft.com/playwright:v1.62.1-noble AS runner
+RUN corepack enable
 ENV NODE_ENV=production
 WORKDIR /repo
 COPY --from=build /repo ./
