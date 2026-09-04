@@ -165,7 +165,7 @@ packages/
 ## Known limitations
 
 - All ten phases from `ARCHITECTURE.md` §14 are complete. Test coverage: `packages/scraper` has an
-  86-test Vitest unit suite (URL/content normalization, ATS-type detection, both JSON-LD
+  90-test Vitest unit suite (URL/content normalization, ATS-type detection, both JSON-LD
   extraction paths, the generic HTML-link heuristic's guard rails, `rel="next"` pagination, the
   iCIMS adapter, and the SSRF guard's IP-blocking — writing that last suite caught two real bugs,
   both fixed: IPv6-literal blocking was silently unreachable due to how `URL.hostname` brackets
@@ -207,6 +207,15 @@ packages/
   transient bot-throttle from repeated manual testing interrupted the run; the mechanism itself
   is confirmed correct, not synthetic). A later page failing outright no longer discards
   postings already found on earlier pages.
+- The iCIMS adapter's own pagination had the same gap for a while, for a different reason: only
+  the first/default search page embeds the `jobImpressions` tracking data it reads — the
+  `?pr=N` paginated result pages render the same postings as plain HTML job cards instead, with
+  no tracking var at all. Every page past the first was silently dropped as a result, cutting off
+  older/lower-id postings that had scrolled past page 1 (found live on Western & Southern's
+  board: a real posting, over a hundred jobs deep, that the app had never discovered). Now falls
+  back to the same JSON-LD/HTML-link extraction the custom-site tiers use whenever a page has no
+  `jobImpressions`, filtered to iCIMS's own `/jobs/<id>/` URL shape so the page's own nav chrome
+  ("Welcome page," "Log back in!") doesn't get swept up as fake postings.
 - Job-link import's Claude-assisted extraction tier only runs when `ANTHROPIC_API_KEY` is set
   in `.env` — without it, extraction still works via the ATS-API/JSON-LD/OpenGraph tiers, just
   with a weaker fallback for sites that use none of those (verified end-to-end against a

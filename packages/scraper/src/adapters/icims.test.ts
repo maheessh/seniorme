@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { extractDetailUrlsById, extractJobImpressions, icimsAdapter, mapImpression } from "./icims";
+import { extractDetailUrlsById, extractJobImpressions, icimsAdapter, isIcimsJobUrl, mapImpression } from "./icims";
 
 const BASE_URL = "https://acme.icims.com/jobs/search";
 
@@ -80,6 +80,24 @@ describe("mapImpression", () => {
       "https://acme.icims.com/jobs/100/x/job",
     );
     expect(posting.employmentType).toBe("FULL_TIME");
+  });
+});
+
+describe("isIcimsJobUrl", () => {
+  it("accepts a real job detail URL (numeric id between /jobs/ and the next segment)", () => {
+    expect(isIcimsJobUrl("https://acme.icims.com/jobs/25211/some-role/job")).toBe(true);
+  });
+
+  // These used to slip through the generic-tier fallback in fetchPostings as fake "postings"
+  // (titled "Welcome page" / "Log back in!") — the bug this predicate fixes.
+  it("rejects the page-chrome links a paginated results page also links to", () => {
+    expect(isIcimsJobUrl("https://acme.icims.com/jobs/intro")).toBe(false);
+    expect(isIcimsJobUrl("https://acme.icims.com/jobs/login?loginOnly=1")).toBe(false);
+    expect(isIcimsJobUrl("https://acme.icims.com/jobs/search?pr=1")).toBe(false);
+  });
+
+  it("returns false rather than throwing for an unparseable URL", () => {
+    expect(isIcimsJobUrl("not a url")).toBe(false);
   });
 });
 

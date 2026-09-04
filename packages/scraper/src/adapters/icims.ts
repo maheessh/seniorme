@@ -3,9 +3,25 @@ import { isAllowedByRobots } from "../robots";
 import { safeFetchText } from "../safe-fetch";
 import { mapEmploymentType, mapWorkMode } from "../normalize";
 import type { CareerSiteAdapter, RawJobPosting } from "../types";
-import { findNextPageUrl } from "./generic";
+import { extractGenericBoardPostings, findNextPageUrl } from "./generic";
 
 const MAX_PAGES = 25;
+
+/**
+ * Same shape as extractDetailUrlsById's own match — a real iCIMS job detail page always carries
+ * a numeric id in this position. Page chrome (the "Welcome page"/"Log back in!" nav links, the
+ * search form itself) resolves to /jobs/intro, /jobs/login, /jobs/search, etc. and would
+ * otherwise pass the generic HTML-link heuristic's own (necessarily looser, site-agnostic)
+ * job-path check — verified live: the generic fallback in fetchPostings picked both of those up
+ * as fake "postings" (titled "Welcome page" / "Log back in!") until this filter was added.
+ */
+export function isIcimsJobUrl(url: string): boolean {
+  try {
+    return /\/jobs\/\d+\//.test(new URL(url).pathname);
+  } catch {
+    return false;
+  }
+}
 
 export type JobImpression = {
   idRaw: number;
@@ -96,19 +112,32 @@ export const icimsAdapter: CareerSiteAdapter = {
       }
 
       const impressions = extractJobImpressions(html);
-      if (impressions.length === 0) {
-        if (page === 0) {
-          throw new Error("Couldn't find the expected job listing data on this iCIMS page.");
+      if (impressions.length > 0) {
+        const urlsById = extractDetailUrlsById(html, currentUrl);
+        for (const impression of impressions) {
+          const url = urlsById.get(impression.idRaw);
+          // Skip entries with no matching detail link rather than guessing a URL — a wrong link
+          // is worse than a missing posting, which the next page/run can still pick up.
+          if (url) postings.push(mapImpression(impression, url));
         }
-        break;
-      }
-
-      const urlsById = extractDetailUrlsById(html, currentUrl);
-      for (const impression of impressions) {
-        const url = urlsById.get(impression.idRaw);
-        // Skip entries with no matching detail link rather than guessing a URL — a wrong link
-        // is worse than a missing posting, which the next page/run can still pick up.
-        if (url) postings.push(mapImpression(impression, url));
+      } else {
+        // Only the first/default search page embeds `jobImpressions` — paginated result pages
+        // (`?pr=N`) render the same postings as plain `<li class="iCIMS_JobCardItem">` HTML
+        // cards instead, with no tracking var at all (confirmed live: page 2 of a real board
+        // returned 0 impressions despite 20 real, linkable job cards in its HTML). Missing this
+        // meant every page past the first was silently dropped, cutting off older/lower-ID
+        // postings that had scrolled past page 1. Falls back to the same JSON-LD/HTML-link
+        // extraction the custom-site tiers use — lower-fidelity (no exact postedDate, weaker
+        // location parsing) but still finds the posting, which is the point of a fallback tier.
+        const generic = extractGenericBoardPostings(html, currentUrl);
+        const genericJobPostings = generic?.postings.filter((posting) => isIcimsJobUrl(posting.url)) ?? [];
+        if (genericJobPostings.length > 0) {
+          postings.push(...genericJobPostings);
+        } else if (page === 0) {
+          throw new Error("Couldn't find the expected job listing data on this iCIMS page.");
+        } else {
+          break;
+        }
       }
 
       currentUrl = findNextPageUrl(html, currentUrl);
