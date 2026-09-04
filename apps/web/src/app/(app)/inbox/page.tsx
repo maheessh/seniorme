@@ -1,14 +1,27 @@
-import type { InboxStatus } from "@ccc/db";
+import type { EmploymentType, InboxStatus } from "@ccc/db";
 import type { Metadata } from "next";
+import { getCompaniesByIds } from "@/lib/server/services/companies";
 import { countInboxJobs, INBOX_STATUSES, listInboxJobs } from "@/lib/server/services/inbox";
 import { ImportJobDialog } from "./import-job-dialog";
+import { InboxFilters } from "./inbox-filters";
 import { InboxList } from "./inbox-list";
 import { StatusTabs } from "./status-tabs";
 
 export const metadata: Metadata = { title: "Inbox" };
 
+const EMPLOYMENT_TYPES: EmploymentType[] = ["INTERNSHIP", "NEW_GRAD", "FULL_TIME", "CONTRACT"];
+
 function parseStatus(value: string | undefined): InboxStatus {
   return value && (INBOX_STATUSES as string[]).includes(value) ? (value as InboxStatus) : "NEW";
+}
+
+function parseCsv(value: string | undefined): string[] {
+  return value ? value.split(",").filter(Boolean) : [];
+}
+
+function parseEmploymentTypes(value: string | undefined): EmploymentType[] {
+  const requested = new Set(parseCsv(value));
+  return EMPLOYMENT_TYPES.filter((type) => requested.has(type));
 }
 
 const EMPTY_LABEL: Record<InboxStatus, string> = {
@@ -21,12 +34,18 @@ const EMPTY_LABEL: Record<InboxStatus, string> = {
 export default async function InboxPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string }>;
+  searchParams: Promise<{ status?: string; companies?: string; types?: string }>;
 }) {
   const params = await searchParams;
   const status = parseStatus(params.status);
+  const companyIds = parseCsv(params.companies);
+  const employmentTypes = parseEmploymentTypes(params.types);
 
-  const [counts, jobs] = await Promise.all([countInboxJobs(), listInboxJobs(status)]);
+  const [counts, jobs, selectedCompanies] = await Promise.all([
+    countInboxJobs(),
+    listInboxJobs(status, { companyIds, employmentTypes }),
+    getCompaniesByIds(companyIds),
+  ]);
 
   return (
     <div className="flex h-full flex-col gap-5">
@@ -46,10 +65,16 @@ export default async function InboxPage({
         <ImportJobDialog />
       </div>
 
-      <StatusTabs active={status} counts={counts} />
+      <StatusTabs active={status} counts={counts} companies={params.companies} types={params.types} />
+
+      <InboxFilters status={status} initialCompanies={selectedCompanies} initialTypes={employmentTypes} />
 
       <div className="min-h-0 flex-1">
-        <InboxList key={status} jobs={jobs} emptyLabel={EMPTY_LABEL[status]} />
+        <InboxList
+          key={`${status}:${companyIds.join(",")}:${employmentTypes.join(",")}`}
+          jobs={jobs}
+          emptyLabel={EMPTY_LABEL[status]}
+        />
       </div>
     </div>
   );

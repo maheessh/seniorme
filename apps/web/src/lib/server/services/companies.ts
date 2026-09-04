@@ -47,7 +47,7 @@ export function getCompany(id: string) {
   return prisma.company.findUnique({ where: { id } });
 }
 
-/** Lightweight search for autocomplete pickers (job import's company field). */
+/** Lightweight search for autocomplete pickers (job import's company field, the Inbox filter). */
 export function searchCompanies(query: string, limit = 8) {
   if (!query.trim()) return prisma.company.findMany({ orderBy: { name: "asc" }, take: limit });
   return prisma.company.findMany({
@@ -55,6 +55,14 @@ export function searchCompanies(query: string, limit = 8) {
     orderBy: { name: "asc" },
     take: limit,
   });
+}
+
+/** Resolves a filter's selected-company chips (e.g. from a `?companies=id1,id2` URL param) back
+ * into full records — silently drops any id that no longer exists rather than erroring, since a
+ * stale/shared URL outliving a deleted company is a normal case, not a bug. */
+export function getCompaniesByIds(ids: string[]) {
+  if (ids.length === 0) return Promise.resolve([]);
+  return prisma.company.findMany({ where: { id: { in: ids } }, orderBy: { name: "asc" } });
 }
 
 async function handleUniqueConstraint<T>(fn: () => Promise<T>, domain: string | undefined) {

@@ -40,9 +40,30 @@ async function main() {
       title: "Software Engineer, Platform",
       location: "Remote",
       workMode: "REMOTE",
+      employmentType: "FULL_TIME",
       url: "https://boards.greenhouse.io/acme-e2e-fixture/jobs/1",
       canonicalUrlHash: "e2e-fixture-hash-1",
       externalJobId: "e2e-1",
+      inboxStatus: "NEW",
+      postedAt: new Date(),
+    },
+  });
+
+  // A second company with its own NEW job — needed so the Inbox company/employment-type filter
+  // spec has something to actually narrow away, not just one company to (no-op) select.
+  const secondCompany = await prisma.company.create({
+    data: { name: "Initech", priority: "MEDIUM", monitoringEnabled: true },
+  });
+  await prisma.job.create({
+    data: {
+      companyId: secondCompany.id,
+      title: "Data Analyst Intern",
+      location: "Austin, TX",
+      workMode: "ONSITE",
+      employmentType: "INTERNSHIP",
+      url: "https://boards.greenhouse.io/initech-e2e-fixture/jobs/1",
+      canonicalUrlHash: "e2e-fixture-hash-3",
+      externalJobId: "e2e-3",
       inboxStatus: "NEW",
       postedAt: new Date(),
     },

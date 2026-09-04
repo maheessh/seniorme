@@ -27,7 +27,7 @@ global command palette (`⌘K`/`Ctrl+K`, search-to-jump across every page), keyb
 Kanban drag-and-drop, a WCAG-AA color contrast pass, a virtualized Inbox list (career-page
 pagination means the New tab routinely holds 100+ jobs — only the rows near the viewport are
 ever mounted), a per-page browser tab title on every route, a skip-to-content link, and a
-117-test unit/integration suite plus a 9-scenario Playwright E2E suite covering the flows in
+117-test unit/integration suite plus a 10-scenario Playwright E2E suite covering the flows in
 `ARCHITECTURE.md` §12 (see "Running tests"). All ten phases from `ARCHITECTURE.md` §14 are done.
 
 This app has no login and no `User` model — it's a single-person, local-only tool, and there
@@ -117,8 +117,9 @@ tables between tests via `apps/worker/src/test-helpers.ts`.
 `apps/web/e2e` covers the flows in `ARCHITECTURE.md` §12: the landing page → add a company →
 add a career source → trigger a scrape, a discovered job moving from Inbox through triage into
 the Pipeline, dragging a card across Kanban columns (verified to actually persist server-side,
-not just in optimistic client state), creating a project/goal and updating progress, and
-job-link import's manual-fallback path. Uses the same `ccc_test` database as the worker's
+not just in optimistic client state), creating a project/goal and updating progress, job-link
+import's manual-fallback path, and the Inbox's company/employment-type filters (type-ahead
+selection narrows the list, `Clear filters` restores it). Uses the same `ccc_test` database as the worker's
 integration tests (set that up first, per above) — a `global-setup.ts` script reseeds it with
 fixture data before any spec runs (there's no login to establish, so that's all setup needs to
 do). Runs the real app via `next dev` on a dedicated port (3100) so it doesn't collide with a
@@ -171,7 +172,7 @@ packages/
   IPv6 addresses, and an IPv4-mapped IPv6 address in its URL-normalized hex form slipped past the
   private-IP check). `apps/worker` has a 31-test integration suite against a real Postgres test
   database (the dedup/upsert edge cases from `ARCHITECTURE.md` §12, the ignored-job auto-purge,
-  notification dedup). `apps/web` has a 9-scenario Playwright E2E suite covering §12's listed
+  notification dedup). `apps/web` has a 10-scenario Playwright E2E suite covering §12's listed
   flows end-to-end against the real running app. A command palette (`⌘K`/`Ctrl+K` from anywhere,
   type to filter, arrow keys + Enter or click to jump) is mounted globally. The Kanban board's
   drag-and-drop is keyboard-operable (dnd-kit's `KeyboardSensor`: Tab to a card, Space to pick

@@ -1,4 +1,4 @@
-import { prisma, type InboxStatus, type Prisma } from "@ccc/db";
+import { prisma, type EmploymentType, type InboxStatus, type Prisma } from "@ccc/db";
 
 export const INBOX_STATUSES: InboxStatus[] = ["NEW", "SAVED", "APPLIED", "IGNORED"];
 
@@ -18,9 +18,18 @@ const inboxJobInclude = {
 
 export type InboxJob = Prisma.JobGetPayload<{ include: typeof inboxJobInclude }>;
 
-export function listInboxJobs(status: InboxStatus) {
+export type InboxFilters = {
+  companyIds?: string[];
+  employmentTypes?: EmploymentType[];
+};
+
+export function listInboxJobs(status: InboxStatus, filters: InboxFilters = {}) {
   return prisma.job.findMany({
-    where: { inboxStatus: status },
+    where: {
+      inboxStatus: status,
+      ...(filters.companyIds?.length ? { companyId: { in: filters.companyIds } } : {}),
+      ...(filters.employmentTypes?.length ? { employmentType: { in: filters.employmentTypes } } : {}),
+    },
     orderBy: { discoveredAt: "desc" },
     include: inboxJobInclude,
   });

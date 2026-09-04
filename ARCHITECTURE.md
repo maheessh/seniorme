@@ -606,7 +606,7 @@ Left sidebar navigation (collapsible), persistent across the app:
 | Integration | Vitest + a real Postgres test container | Prisma queries, unique-constraint behavior, service-layer functions end-to-end against the DB |
 | Adapter/parser | Vitest + fixture files (recorded real API/HTML responses) + MSW to mock HTTP | Each adapter tested against a "happy path" fixture and a "malformed/changed format" fixture |
 | API | Vitest calling route handlers directly (or Supertest against a test server) | Auth boundaries, validation errors, pagination correctness |
-| E2E | Playwright Test | Landing page → add company → manual scrape trigger → job appears in inbox → move to application → drag across Kanban stages → create project/goal and update progress → job-link import happy path and manual-fallback path |
+| E2E | Playwright Test | Landing page → add company → manual scrape trigger → job appears in inbox → move to application → drag across Kanban stages → create project/goal and update progress → job-link import happy path and manual-fallback path → Inbox company/employment-type filters |
 
 Explicit edge cases from your spec, mapped to concrete tests:
 - Duplicate jobs across runs → adapter test asserts second run with identical fixture yields
