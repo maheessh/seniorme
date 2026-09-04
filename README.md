@@ -1,5 +1,8 @@
 # Senior Me
 
+[![CI](https://github.com/maheessh/seniorme/actions/workflows/ci.yml/badge.svg)](https://github.com/maheessh/seniorme/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 A personal career, project, and job-application command center. See [ARCHITECTURE.md](ARCHITECTURE.md)
 for the full system design, database schema, and phased implementation roadmap this project
 follows, and [DEPLOYMENT.md](DEPLOYMENT.md) for the optional cloud deployment path.
@@ -243,8 +246,22 @@ packages/
 - Fuzzy-duplicate detection (pg_trgm title similarity) flags a possible repost for review in
   the Inbox but never auto-merges — dismissing the flag just clears it, it doesn't teach the
   matcher anything.
-- Automated coverage is unit-level only so far (`packages/scraper`, see above) — the full test
-  strategy across all five layers is defined in `ARCHITECTURE.md` §12. The web/worker
-  service-layer logic (dedup upserts, stage transitions, notification dedup) and the fuzzy-match
-  tier have been manually verified end-to-end against live boards during development (see commit
-  history) but aren't covered by CI-run tests yet.
+- CI (`.github/workflows/ci.yml`) runs on every push/PR to `main`: typecheck, lint, the full
+  `pnpm test` suite (`packages/scraper` unit tests + `apps/worker` integration tests against a
+  real Postgres/Redis, both spun up as GitHub Actions services) and a full production `pnpm
+  build`. The Playwright E2E suite isn't in CI yet — it needs a dedicated port, a seeded
+  database, and (since the headless-browser fallback tier can invoke a real browser) more setup
+  than the other suites; run it locally per "E2E tests" above before a release if you've touched
+  Inbox/Pipeline/scraping flows.
+
+## Contributing
+
+This started as (and still mostly is) a personal tool, so there's no formal process — issues and
+PRs are welcome. Before opening a PR: `pnpm install`, then `pnpm lint`, `pnpm test`, and `pnpm
+build` should all pass (this is exactly what CI checks). See "Local setup" above to get a dev
+environment running, and `ARCHITECTURE.md` for the system design behind any change you're
+considering.
+
+## License
+
+[MIT](LICENSE) — see the LICENSE file for the full text.

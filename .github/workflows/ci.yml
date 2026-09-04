@@ -1,0 +1,80 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: ccc
+          POSTGRES_PASSWORD: ccc
+          POSTGRES_DB: ccc_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      # apps/worker's test-setup.ts hardcodes this same ccc_test connection string, so the
+      # Postgres service above must match it exactly (user/password/db all "ccc"/"ccc"/"ccc_test").
+      DATABASE_URL: postgresql://ccc:ccc@localhost:5432/ccc_test?schema=public
+      REDIS_URL: redis://localhost:6379
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # packages/db's generate/migrate scripts load DATABASE_URL via `dotenv -e ../../.env`,
+      # matching the local dev workflow (see README) rather than reading process.env directly.
+      - name: Write .env
+        run: |
+          echo "DATABASE_URL=$DATABASE_URL" >> .env
+          echo "REDIS_URL=$REDIS_URL" >> .env
+
+      - name: Generate Prisma client and apply migrations
+        run: |
+          pnpm db:generate
+          pnpm --filter @ccc/db exec prisma migrate deploy
+
+      - name: Typecheck
+        run: |
+          pnpm --filter @ccc/web exec tsc --noEmit
+          pnpm --filter @ccc/worker exec tsc --noEmit
+          pnpm --filter @ccc/scraper exec tsc --noEmit
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Unit and integration tests
+        run: pnpm test
+
+      - name: Production build
+        run: pnpm build

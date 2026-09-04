@@ -1,5 +1,6 @@
 FROM node:22-alpine AS base
 RUN corepack enable
+RUN corepack prepare pnpm@11.22.0 --activate
 WORKDIR /repo
 
 FROM base AS deps
@@ -26,12 +27,22 @@ RUN pnpm --filter @ccc/worker build
 
 # Career-page monitoring's headless-browser fallback tier (packages/scraper/src/adapters/
 # headless.ts) needs a real Chromium binary at runtime. Playwright's bundled Chromium isn't
-# supported on Alpine (musl libc), so the runner alone moves to Microsoft's official Playwright
-# image — Debian-based, with a Chromium build already matching the exact `playwright` npm
-# version pinned in packages/scraper/package.json. Keep this tag in lockstep with that version.
-FROM mcr.microsoft.com/playwright:v1.62.1-noble AS runner
+# supported on Alpine (musl libc), so the runner needs a Debian/Ubuntu base. Rather than
+# Microsoft's official Playwright image (which bundles Chromium *and* Firefox *and* WebKit —
+# ~1.5GB of browsers, most of it unused, and baked into that image's own layers where a later
+# `rm -rf` can't shrink it back out: deleting a file in a later Docker layer only hides it, it
+# doesn't remove it from the layers underneath), install only what's actually used: Chromium
+# itself, plus its own OS-level dependencies via `--with-deps` (equivalent to what the official
+# image's build does, minus the other two browsers).
+FROM node:22-bookworm-slim AS runner
 RUN corepack enable
+# See the equivalent step in apps/web/Dockerfile's base stage — pins/caches pnpm at build time
+# rather than leaving the container's first startup to fetch it from the npm registry. This
+# stage is a fresh base (not built FROM the `base` stage above), so it needs its own copy.
+RUN corepack prepare pnpm@11.22.0 --activate
 ENV NODE_ENV=production
 WORKDIR /repo
 COPY --from=build /repo ./
+RUN npx --prefix packages/scraper playwright install --with-deps chromium \
+    && rm -rf /var/lib/apt/lists/*
 CMD ["pnpm", "--filter", "@ccc/worker", "start"]

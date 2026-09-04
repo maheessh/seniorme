@@ -45,7 +45,7 @@ user.
 
 ## 2. Existing Codebase Analysis
 
-The working directory (`/Users/maheshpandit/Projects/senioryear`) is currently **empty** — there is
+The working directory is currently **empty** — there is
 no existing application to extend. The "existing site" you referenced (cluely.com) is a third-party
 marketing site used purely as **visual/style inspiration** (see the design note above); it is not a
 codebase we own or can extend, and none of its content will be reused. Net effect: we're building

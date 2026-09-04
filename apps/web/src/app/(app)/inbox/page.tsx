@@ -47,6 +47,14 @@ export default async function InboxPage({
     getCompaniesByIds(companyIds),
   ]);
 
+  // InboxFilters and InboxList both hold local state seeded from these URL-derived values, but
+  // neither should be *synced* to a later prop change via an effect (React's own guidance: an
+  // effect that just mirrors a prop into state causes an extra render and is easy to get subtly
+  // wrong). Keying them by the values that should reset their state — a status-tab click or
+  // browser back/forward that changes the URL without this component driving it — makes React
+  // remount with fresh initial state instead, which is simpler and correct by construction.
+  const filterKey = `${status}:${companyIds.join(",")}:${employmentTypes.join(",")}`;
+
   return (
     <div className="flex h-full flex-col gap-5">
       <div className="flex items-start justify-between gap-4">
@@ -67,14 +75,15 @@ export default async function InboxPage({
 
       <StatusTabs active={status} counts={counts} companies={params.companies} types={params.types} />
 
-      <InboxFilters status={status} initialCompanies={selectedCompanies} initialTypes={employmentTypes} />
+      <InboxFilters
+        key={filterKey}
+        status={status}
+        initialCompanies={selectedCompanies}
+        initialTypes={employmentTypes}
+      />
 
       <div className="min-h-0 flex-1">
-        <InboxList
-          key={`${status}:${companyIds.join(",")}:${employmentTypes.join(",")}`}
-          jobs={jobs}
-          emptyLabel={EMPTY_LABEL[status]}
-        />
+        <InboxList key={filterKey} jobs={jobs} emptyLabel={EMPTY_LABEL[status]} />
       </div>
     </div>
   );

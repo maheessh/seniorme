@@ -1,5 +1,12 @@
 FROM node:22-alpine AS base
 RUN corepack enable
+# Pins and caches the exact pnpm version package.json's `packageManager` field specifies, at
+# build time — without this, corepack lazily fetches it from the npm registry on first `pnpm`
+# invocation, which for the `runner` stage means the *container's first startup*, not the build.
+# That's a real-world reliability gap for a deployed container (a cold start now depends on the
+# npm registry being reachable) for a fetch that's both deterministic and small enough to just
+# bake in.
+RUN corepack prepare pnpm@11.22.0 --activate
 WORKDIR /repo
 
 FROM base AS deps

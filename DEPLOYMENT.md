@@ -63,15 +63,26 @@ fixed as part of this work:
    arbitrary external hosts). Added `trustHost: true` to the shared auth config.
 
 > **Update:** the worker's `Dockerfile` later changed again — its `runner` stage moved from
-> `node:22-alpine` to `mcr.microsoft.com/playwright:*-noble` to support the scraper's
-> headless-Chromium fallback tier (`packages/scraper/src/adapters/headless.ts`), since
-> Playwright's bundled Chromium isn't supported on Alpine's musl libc. Verified the same way as
-> the rest of this document: built the image (`docker build -f apps/worker/Dockerfile .`) and ran
-> a real headless-Chromium fetch inside the resulting container against a live JS-rendered career
-> page, confirming the page rendered correctly. This does make the worker image noticeably
-> larger (the Playwright base image ships Chromium, Firefox, and WebKit even though only Chromium
-> is used) — acceptable for a single-user local/self-hosted tool, worth revisiting if image size
-> ever matters (e.g. trimming to a Chromium-only Playwright image).
+> `node:22-alpine` to a Debian base to support the scraper's headless-Chromium fallback tier
+> (`packages/scraper/src/adapters/headless.ts`), since Playwright's bundled Chromium isn't
+> supported on Alpine's musl libc. First landed on Microsoft's official Playwright image
+> (`mcr.microsoft.com/playwright:*-noble`), which works but bundles Chromium *and* Firefox *and*
+> WebKit — ~1.5GB of browsers, only a third of it ever used, and baked into that image's own
+> layers where a later `rm -rf` doesn't actually shrink the shipped image (deleting a file in a
+> later Docker layer only hides it from the final filesystem view — the layer underneath that
+> added it, and its size, are still part of what gets pushed/pulled). Switched to
+> `node:22-bookworm-slim` with `playwright install --with-deps chromium` instead — installs only
+> Chromium and its own OS-level dependencies, nothing else — which took the image from 5.06GB to
+> 3.44GB. Also pins/caches the exact pnpm version at build time (`corepack prepare pnpm@X
+> --activate`, matching the `packageManager` field in the root `package.json`) in both
+> Dockerfiles — without it, corepack fetches pnpm from the npm registry lazily on first `pnpm`
+> invocation, which for the `runner` stage meant the *container's first startup*, not the build;
+> a real reliability gap for a deployed container that's both easy to hit and easy to avoid.
+> Verified the same way as the rest of this document: built both images, ran a real
+> headless-Chromium fetch against a live JS-rendered career page inside the worker container, and
+> booted both containers' actual `start` commands end-to-end (worker connecting to Postgres/Redis
+> and registering its scheduler; web serving a real HTTP 200) rather than just checking that the
+> build step exits zero.
 
 A seventh, unrelated issue surfaced by the same testing pass: the worker's `tsc` build was also
 compiling `*.test.ts` files into `dist/`, which Vitest then discovered and ran *in addition to*

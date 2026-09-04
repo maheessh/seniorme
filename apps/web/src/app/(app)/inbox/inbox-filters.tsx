@@ -3,7 +3,7 @@
 import type { Company, EmploymentType } from "@ccc/db";
 import { Check, X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { CompanyLogo } from "@/components/company-logo";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -29,17 +29,6 @@ export function InboxFilters({
   const [matches, setMatches] = useState<Company[]>([]);
   const [open, setOpen] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-
-  // This component persists across a status-tab click or browser back/forward — it isn't keyed
-  // by the URL — so its local selection has to be resynced whenever the server-derived props
-  // change, or a nav that didn't originate from this component (e.g. history navigation) would
-  // leave the displayed chips/highlights stale even though the list itself filtered correctly.
-  useEffect(() => {
-    setCompanies(initialCompanies);
-  }, [initialCompanies]);
-  useEffect(() => {
-    setTypes(initialTypes);
-  }, [initialTypes]);
 
   function navigate(nextCompanies: Company[], nextTypes: EmploymentType[]) {
     const params = new URLSearchParams({ status });
