@@ -11,6 +11,23 @@ const optionalTrimmed = (max: number) =>
     .optional()
     .transform((value) => (value ? value : undefined));
 
+/** A comma-separated form field ("SWE Intern, New Grad Backend") parsed into a trimmed,
+ * empty-filtered string array — the shape both rolesOfInterest and targetLocationKeywords take. */
+const commaSeparatedList = (max: number) =>
+  z
+    .string()
+    .trim()
+    .max(max)
+    .optional()
+    .transform((value) =>
+      value
+        ? value
+            .split(",")
+            .map((item) => item.trim())
+            .filter(Boolean)
+        : [],
+    );
+
 export const companyInputSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(200),
   domain: z
@@ -36,19 +53,18 @@ export const companyInputSchema = z.object({
   industry: optionalTrimmed(200),
   priority: priorityEnum.default("MEDIUM"),
   notes: optionalTrimmed(5000),
-  rolesOfInterest: z
+  rolesOfInterest: commaSeparatedList(1000),
+  targetLocationKeywords: commaSeparatedList(500),
+  maxPostingAgeDays: z
     .string()
     .trim()
-    .max(1000)
+    .max(10)
     .optional()
-    .transform((value) =>
-      value
-        ? value
-            .split(",")
-            .map((role) => role.trim())
-            .filter(Boolean)
-        : [],
-    ),
+    .transform((value) => (value ? value : undefined))
+    .refine((value) => value === undefined || (/^\d+$/.test(value) && Number(value) > 0), {
+      message: "Enter a whole number of days greater than 0",
+    })
+    .transform((value) => (value === undefined ? null : Number(value))),
   monitoringEnabled: z
     .union([z.literal("on"), z.literal("true"), z.boolean()])
     .optional()

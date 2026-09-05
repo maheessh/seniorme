@@ -99,6 +99,50 @@ describe("extractGenericBoardPostings — HTML-link heuristic tier", () => {
     expect(result?.postings.map((p) => p.title)).toEqual(["Software Engineer", "Data Scientist", "Product Manager"]);
   });
 
+  it("extracts a sibling location for the opposite layout — anchor inside a heading, not wrapping one", () => {
+    // Amazon's own board (verified live): the anchor wraps *only* the title and sits inside an
+    // <h3>; the location renders as a sibling <li> of that heading, not a descendant of the link.
+    const card = (path: string, title: string, location: string) =>
+      `<div class="card"><h3><a href="${path}">${title}</a></h3>` +
+      `<ul><li>${location}</li><li>|</li><li>Job ID: 123</li></ul></div>`;
+    const html = [
+      card("/jobs/10530555/software-dev-engineer", "Software Dev Engineer", "Seattle, WA, USA"),
+      card("/jobs/10530584/wireless-tpm", "Wireless TPM", "Sunnyvale, CA, USA"),
+      card("/jobs/10530581/business-process-manager", "Business Process Manager", "Bellevue, WA, USA"),
+    ].join("\n");
+    const result = extractGenericBoardPostings(html, BASE_URL);
+    expect(result?.postings.map((p) => p.location)).toEqual([
+      "Seattle, WA, USA",
+      "Sunnyvale, CA, USA",
+      "Bellevue, WA, USA",
+    ]);
+  });
+
+  it("doesn't let neighboring text bleed into the extracted location", () => {
+    // A regression check for a real bug: joining the whole card's text into one string before
+    // matching let the location regex swallow everything back to the previous capital letter
+    // ("Container Service Locations Seattle, WA, USA" instead of just "Seattle, WA, USA").
+    const html = [
+      `<div class="card"><h3><a href="/jobs/container-service-engineer">Container Service Engineer</a></h3>` +
+        `<span>Locations</span><ul><li>Seattle, WA, USA</li></ul></div>`,
+      `<a href="/jobs/data-scientist-def">Data Scientist</a>`,
+      `<a href="/jobs/product-manager-ghi">Product Manager</a>`,
+    ].join("\n");
+    const result = extractGenericBoardPostings(html, BASE_URL);
+    const engineer = result?.postings.find((p) => p.title === "Container Service Engineer");
+    expect(engineer?.location).toBe("Seattle, WA, USA");
+  });
+
+  it("leaves location null when no card text matches the location shape", () => {
+    const html = [
+      `<a href="/jobs/software-engineer-abc">Software Engineer</a>`,
+      `<a href="/jobs/data-scientist-def">Data Scientist</a>`,
+      `<a href="/jobs/product-manager-ghi">Product Manager</a>`,
+    ].join("\n");
+    const result = extractGenericBoardPostings(html, BASE_URL);
+    expect(result?.postings.every((p) => p.location === null)).toBe(true);
+  });
+
   it("de-duplicates the same href appearing more than once on the page", () => {
     const html = [
       `<a href="/jobs/software-engineer-abc">Software Engineer</a>`,

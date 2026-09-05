@@ -1,4 +1,4 @@
-import { Prisma, prisma } from "@ccc/db";
+import { type Company, Prisma, prisma } from "@ccc/db";
 import {
   fetchGenericBoardWithPagination,
   fetchWithHeadlessBrowser,
@@ -92,7 +92,18 @@ export async function processScrapeSource(
       seen.has(posting.externalJobId) ? false : Boolean(seen.add(posting.externalJobId)),
     );
 
-    for (const posting of deduped) {
+    // Applied only to what gets stored, not to `deduped` itself — removal-detection below still
+    // needs the *true* full listing to compare against, or a posting the company filters out
+    // would look indistinguishable from one that's actually gone from the source.
+    const toStore = filterByCompanyPreferences(deduped, source.company);
+    if (toStore.length < deduped.length) {
+      logger.info(
+        { careerSourceId, totalFound: deduped.length, matchingPreferences: toStore.length },
+        "Company location/role/age filters narrowed this scrape's postings",
+      );
+    }
+
+    for (const posting of toStore) {
       jobsNew += await upsertJobPosting(source.id, source.companyId, source.company.name, posting);
     }
 
@@ -175,6 +186,51 @@ export async function processScrapeSource(
   } else {
     logger.info({ careerSourceId, jobsFound, jobsNew }, "Scrape completed");
   }
+}
+
+const MS_PER_DAY = 1000 * 60 * 60 * 24;
+
+/**
+ * Applies a company's own scrape-scope preferences — set on the company, not per-source, since
+ * they express "what I care about here" regardless of which specific board a posting came from —
+ * to narrow what actually gets stored. A large company's board can run into the thousands of
+ * postings; most of them irrelevant to any one person's search. Never touches removal-detection
+ * (that runs against the full unfiltered listing, before this is applied) — a posting that
+ * doesn't pass this filter is simply never stored in the first place, not "removed" from a
+ * source it's still genuinely listed on.
+ */
+export function filterByCompanyPreferences(
+  postings: RawJobPosting[],
+  company: Pick<Company, "rolesOfInterest" | "targetLocationKeywords" | "maxPostingAgeDays">,
+): RawJobPosting[] {
+  return postings.filter((posting) => {
+    if (company.rolesOfInterest.length > 0) {
+      const title = posting.title.toLowerCase();
+      if (!company.rolesOfInterest.some((keyword) => title.includes(keyword.toLowerCase()))) {
+        return false;
+      }
+    }
+
+    if (company.targetLocationKeywords.length > 0) {
+      // A posting with no location data at all can't be confirmed to match a location filter,
+      // so it's excluded rather than let through by default — the whole point of this filter is
+      // narrowing a large board down, and letting every location-less posting through would
+      // defeat that for exactly the generic-HTML-tier sites (large custom boards) most likely to
+      // need it.
+      if (!posting.location) return false;
+      const location = posting.location.toLowerCase();
+      if (!company.targetLocationKeywords.some((keyword) => location.includes(keyword.toLowerCase()))) {
+        return false;
+      }
+    }
+
+    if (company.maxPostingAgeDays != null && posting.postedAt) {
+      const ageDays = (Date.now() - posting.postedAt.getTime()) / MS_PER_DAY;
+      if (ageDays > company.maxPostingAgeDays) return false;
+    }
+
+    return true;
+  });
 }
 
 /** Returns 1 if a new Job row was created, 0 if it matched an existing one. */

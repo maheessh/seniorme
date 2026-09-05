@@ -25,6 +25,8 @@ function parseCompanyForm(formData: FormData) {
     priority: formData.get("priority"),
     notes: formData.get("notes"),
     rolesOfInterest: formData.get("rolesOfInterest"),
+    targetLocationKeywords: formData.get("targetLocationKeywords"),
+    maxPostingAgeDays: formData.get("maxPostingAgeDays"),
     monitoringEnabled: formData.get("monitoringEnabled"),
   });
 }

@@ -117,6 +117,15 @@ model Company {
   priority          Priority @default(MEDIUM)
   notes             String?
   rolesOfInterest   String[]
+  /// Scrape-scope filter: only keep newly-discovered postings whose location contains one of
+  /// these (case-insensitive substring match) — empty means no location filter. Lives on the
+  /// company, not the career source, since it expresses "what I care about here" regardless of
+  /// which specific board a posting came from.
+  targetLocationKeywords String[] @default([])
+  /// Scrape-scope filter: only keep newly-discovered postings posted within this many days —
+  /// null means no age filter. A posting with no known post date is never excluded by this (an
+  /// unknown age isn't evidence it's stale).
+  maxPostingAgeDays      Int?
   monitoringEnabled Boolean  @default(true)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt

@@ -156,7 +156,9 @@ model Company {
   industry          String?
   priority          Priority  @default(MEDIUM)
   notes             String?
-  rolesOfInterest   String[]             // free-text tags, e.g. ["SWE Intern", "New Grad Backend"]
+  rolesOfInterest   String[]             // scrape filter: keep a posting only if its title contains one of these
+  targetLocationKeywords String[] @default([])  // scrape filter: keep only if location contains one of these
+  maxPostingAgeDays Int?                 // scrape filter: drop postings older than this (unknown age is never dropped)
   monitoringEnabled Boolean   @default(true)
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
@@ -501,9 +503,28 @@ interface CareerSiteAdapter {
    initial render, so its results are always marked incomplete (`AdapterFetchResult.complete:
    false`) and never used for removal-detection, only for discovering/refreshing postings. Needs
    a real Chromium binary at runtime (`npx playwright install chromium` locally); the worker's
-   Docker runner image moved from `node:22-alpine` to `mcr.microsoft.com/playwright:*-noble`
-   since Playwright's bundled Chromium isn't supported on Alpine's musl libc — verified by
-   building and running that image against a real board (see DEPLOYMENT.md).
+   Docker runner image moved from `node:22-alpine` to a Debian base with Chromium installed
+   selectively (`playwright install --with-deps chromium`), since Playwright's bundled Chromium
+   isn't supported on Alpine's musl libc — verified by building and running that image against a
+   real board (see DEPLOYMENT.md).
+
+**Scrape-scope filtering (`Company.rolesOfInterest` / `targetLocationKeywords` /
+`maxPostingAgeDays`):** a large company's board can run into the thousands of postings, most of
+them irrelevant to any one search (verified live against Amazon's board — a bare, unfiltered
+search returned postings ranging from warehouse technicians to ML research roles). Applied once
+per scrape, after dedup but before `upsertJobPosting`, in `filterByCompanyPreferences`
+(`apps/worker/src/scrape-processor.ts`) — title/location are simple case-insensitive substring
+matches (OR-combined within each filter, AND-combined across the three), and an unset filter
+(empty array / null) never excludes anything. Deliberately lives on the `Company`, not the
+`CareerSource`, since it expresses "what I care about here" regardless of which specific board a
+posting came from. Two judgment calls worth being explicit about: a posting with no location data
+is *excluded* when a location filter is active (can't confirm a match, and the whole point is
+narrowing a large board down — letting everything through by default would defeat that for
+exactly the generic-HTML-tier sites most likely to need it), while a posting with no post date is
+*never* excluded by the age filter (unknown age isn't evidence it's stale). Only affects what gets
+stored going forward — never touches removal-detection, which still runs against the full,
+unfiltered listing (a posting the filter excludes was simply never stored, not "removed" from a
+source it's still genuinely listed on).
 
 **Politeness note:** `Crawl-delay` in a site's `robots.txt`, when present, now overrides the
 default 1s per-host minimum spacing (capped at 30s) — discovered as a real gap while testing

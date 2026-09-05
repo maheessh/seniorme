@@ -113,9 +113,46 @@ export function CompanyFormDialog({ company, trigger }: { company?: Company; tri
             <Input
               id="rolesOfInterest"
               name="rolesOfInterest"
-              placeholder="SWE Intern, New Grad Backend"
+              placeholder="Software Engineer, Data Scientist, Product Manager"
               defaultValue={company?.rolesOfInterest.join(", ")}
             />
+            <p className="text-xs text-muted-foreground">
+              Comma-separated. A newly-discovered posting is only kept if its title contains at
+              least one of these — leave blank to keep everything. Useful at a company with a
+              huge board (Amazon, Google, ...) where most postings aren&apos;t relevant to you.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="targetLocationKeywords">Target locations</Label>
+              <Input
+                id="targetLocationKeywords"
+                name="targetLocationKeywords"
+                placeholder="Seattle, Remote, New York"
+                defaultValue={company?.targetLocationKeywords.join(", ")}
+              />
+              <p className="text-xs text-muted-foreground">
+                Comma-separated. Only keeps postings whose location matches one of these — blank
+                keeps every location.
+              </p>
+              <FieldError messages={state?.fieldErrors?.targetLocationKeywords} />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="maxPostingAgeDays">Max posting age (days)</Label>
+              <Input
+                id="maxPostingAgeDays"
+                name="maxPostingAgeDays"
+                type="number"
+                min={1}
+                placeholder="e.g. 30"
+                defaultValue={company?.maxPostingAgeDays ?? ""}
+              />
+              <p className="text-xs text-muted-foreground">
+                Skip postings older than this — blank keeps every age.
+              </p>
+              <FieldError messages={state?.fieldErrors?.maxPostingAgeDays} />
+            </div>
           </div>
 
           <div className="flex flex-col gap-1.5">

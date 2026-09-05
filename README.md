@@ -30,7 +30,7 @@ global command palette (`⌘K`/`Ctrl+K`, search-to-jump across every page), keyb
 Kanban drag-and-drop, a WCAG-AA color contrast pass, a virtualized Inbox list (career-page
 pagination means the New tab routinely holds 100+ jobs — only the rows near the viewport are
 ever mounted), a per-page browser tab title on every route, a skip-to-content link, and a
-117-test unit/integration suite plus a 10-scenario Playwright E2E suite covering the flows in
+136-test unit/integration suite plus a 10-scenario Playwright E2E suite covering the flows in
 `ARCHITECTURE.md` §12 (see "Running tests"). All ten phases from `ARCHITECTURE.md` §14 are done.
 
 This app has no login and no `User` model — it's a single-person, local-only tool, and there
@@ -168,7 +168,7 @@ packages/
 ## Known limitations
 
 - All ten phases from `ARCHITECTURE.md` §14 are complete. Test coverage: `packages/scraper` has an
-  90-test Vitest unit suite (URL/content normalization, ATS-type detection, both JSON-LD
+  93-test Vitest unit suite (URL/content normalization, ATS-type detection, both JSON-LD
   extraction paths, the generic HTML-link heuristic's guard rails, `rel="next"` pagination, the
   iCIMS adapter, and the SSRF guard's IP-blocking — writing that last suite caught two real bugs,
   both fixed: IPv6-literal blocking was silently unreachable due to how `URL.hostname` brackets
@@ -241,6 +241,19 @@ packages/
   plain fetch. Needs a real Chromium binary at runtime — run `npx playwright install chromium`
   once (`pnpm --filter @ccc/scraper exec playwright install chromium` from the repo root) before
   `pnpm dev:worker` will hit this tier successfully; the worker's Docker image already bundles it.
+- A company with a huge board (Amazon, Google, ...) doesn't have to mean a flood of irrelevant
+  postings — the "Add company" / "Edit company" dialog has three optional scrape-scope filters:
+  roles of interest (keeps a posting only if its title contains one of these), target locations
+  (same, against location), and max posting age in days. All comma-separated keyword lists except
+  the age field, all optional, all AND-combined with each other but OR-combined within
+  themselves. Verified end-to-end against Amazon's real board: an unfiltered scrape returned
+  postings from ML research to warehouse technicians, and filtering to "Software Development"
+  correctly kept only the 3 of 10 that matched. Along the way, the generic HTML-link heuristic
+  also learned to pull a posting's location from a sibling element near the title (not just a
+  nested one) — Amazon's cards render the title inside a heading with location as a *sibling* of
+  that heading, the mirror image of the "clickable card" layout already handled, and needed a
+  precise per-text-node location match (not a substring search across the whole card's
+  concatenated text) to avoid pulling in neighboring words.
 - Company logos are derived automatically from the domain (via DuckDuckGo's icon service) at
   create/update time — there's no manual upload path, by design.
 - Fuzzy-duplicate detection (pg_trgm title similarity) flags a possible repost for review in

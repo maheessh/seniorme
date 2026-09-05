@@ -30,6 +30,17 @@ const GENERIC_LINK_TEXT = new Set([
 /** Below this many distinct candidate links, treat it as noise rather than a real listing. */
 const MIN_HEURISTIC_MATCHES = 3;
 
+/**
+ * "Seattle, WA" or "Seattle, WA, USA" — the common shape a location renders as its *own* short
+ * text node near a job title (e.g. a `<li>City, ST</li>`). Anchored start-to-end deliberately:
+ * matched against one isolated DOM text node at a time (see cardTextParts below), never a
+ * concatenation of several — a substring search across joined text is exactly what let an
+ * earlier version of this regex swallow "Container Service Locations Seattle, WA, USA" as if
+ * all of it were the city name, since nothing stopped the greedy middle group from crossing
+ * node boundaries once everything was one string.
+ */
+const LOCATION_RE = /^[A-Z][a-zA-Z.'\s-]{1,40},\s*[A-Z]{2}(?:,\s*[A-Za-z\s]{2,25})?$/;
+
 function fromJsonLd(html: string, baseUrl: string): RawJobPosting[] {
   return extractAllJobPostingsJsonLd(html, baseUrl).map((posting) => ({
     externalJobId: posting.externalJobId ?? hashUrl(posting.url!).slice(0, 16),
@@ -46,7 +57,7 @@ function fromJsonLd(html: string, baseUrl: string): RawJobPosting[] {
 function fromHtmlHeuristic(html: string, baseUrl: string): RawJobPosting[] {
   const $ = cheerio.load(html);
   const base = new URL(baseUrl);
-  const seen = new Map<string, string>(); // url -> title
+  const seen = new Map<string, { title: string; location: string | null }>(); // url -> ...
 
   $("a[href]").each((_, el) => {
     const href = $(el).attr("href");
@@ -71,18 +82,44 @@ function fromHtmlHeuristic(html: string, baseUrl: string): RawJobPosting[] {
     if (!text || text.length < 4 || text.length > 150) return;
     if (GENERIC_LINK_TEXT.has(text.toLowerCase())) return;
 
+    // The opposite layout also shows up (e.g. Amazon's boards): the anchor wraps *only* the
+    // title and sits *inside* a heading, with the location rendered as a sibling of that heading
+    // rather than a descendant of the link — so it'd never be found by searching inside the
+    // anchor itself (that's `heading` above, which looks for a heading *nested inside* the
+    // anchor — the opposite relationship). `.closest()` walks up for an ANCESTOR heading instead;
+    // its parent is the shared card container. Falls back to the anchor's own parent when
+    // neither shape applies — for a "whole card is one big anchor" layout, everything (location
+    // included) is already inside the anchor itself, so its parent still covers it.
+    const ancestorHeading = $(el).closest("h1, h2, h3, h4, h5, h6");
+    const cardScope = ancestorHeading.length > 0 ? ancestorHeading.parent() : $(el).parent();
+    // Tested one DOM text node at a time, not concatenated — a location usually renders as its
+    // own short, self-contained text node (e.g. a `<li>City, ST</li>`), and matching each node
+    // individually against the fully-anchored LOCATION_RE means neighboring text (the title, a
+    // "Locations" label, "Job ID: ...") can never bleed into the match the way a substring search
+    // over one joined blob could.
+    let location: string | null = null;
+    cardScope
+      .find("*")
+      .addBack()
+      .contents()
+      .each((_, node) => {
+        if (location || node.type !== "text" || !("data" in node)) return;
+        const value = node.data.trim();
+        if (LOCATION_RE.test(value)) location = value;
+      });
+
     const url = absolute.toString();
-    if (!seen.has(url)) seen.set(url, text);
+    if (!seen.has(url)) seen.set(url, { title: text, location });
   });
 
   if (seen.size < MIN_HEURISTIC_MATCHES) return [];
 
-  return [...seen.entries()].map(([url, title]) => ({
+  return [...seen.entries()].map(([url, { title, location }]) => ({
     externalJobId: hashUrl(url).slice(0, 16),
     title,
     url,
-    location: null,
-    workMode: "UNKNOWN" as const,
+    location,
+    workMode: mapWorkMode(location),
     employmentType: null,
     description: null,
     postedAt: null,
