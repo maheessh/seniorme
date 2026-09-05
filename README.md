@@ -30,7 +30,7 @@ global command palette (`⌘K`/`Ctrl+K`, search-to-jump across every page), keyb
 Kanban drag-and-drop, a WCAG-AA color contrast pass, a virtualized Inbox list (career-page
 pagination means the New tab routinely holds 100+ jobs — only the rows near the viewport are
 ever mounted), a per-page browser tab title on every route, a skip-to-content link, and a
-143-test unit/integration suite plus a 10-scenario Playwright E2E suite covering the flows in
+143-test unit/integration suite plus a 12-scenario Playwright E2E suite covering the flows in
 `ARCHITECTURE.md` §12 (see "Running tests"). All ten phases from `ARCHITECTURE.md` §14 are done.
 
 This app has no login and no `User` model — it's a single-person, local-only tool, and there
@@ -121,8 +121,10 @@ tables between tests via `apps/worker/src/test-helpers.ts`.
 add a career source → trigger a scrape, a discovered job moving from Inbox through triage into
 the Pipeline, dragging a card across Kanban columns (verified to actually persist server-side,
 not just in optimistic client state), creating a project/goal and updating progress, job-link
-import's manual-fallback path, and the Inbox's company/employment-type filters (type-ahead
-selection narrows the list, `Clear filters` restores it). Uses the same `ccc_test` database as the worker's
+import's manual-fallback path, the Inbox's company/employment-type filters (type-ahead selection
+narrows the list, `Clear filters` restores it), and bulk-selecting jobs in the Inbox to ignore
+several at once (select-all, an indeterminate state when only some are picked, bulk actions
+scoped correctly when filtered to one company). Uses the same `ccc_test` database as the worker's
 integration tests (set that up first, per above) — a `global-setup.ts` script reseeds it with
 fixture data before any spec runs (there's no login to establish, so that's all setup needs to
 do). Runs the real app via `next dev` on a dedicated port (3100) so it doesn't collide with a
@@ -175,7 +177,7 @@ packages/
   IPv6 addresses, and an IPv4-mapped IPv6 address in its URL-normalized hex form slipped past the
   private-IP check). `apps/worker` has a 31-test integration suite against a real Postgres test
   database (the dedup/upsert edge cases from `ARCHITECTURE.md` §12, the ignored-job auto-purge,
-  notification dedup). `apps/web` has a 10-scenario Playwright E2E suite covering §12's listed
+  notification dedup). `apps/web` has a 12-scenario Playwright E2E suite covering §12's listed
   flows end-to-end against the real running app. A command palette (`⌘K`/`Ctrl+K` from anywhere,
   type to filter, arrow keys + Enter or click to jump) is mounted globally. The Kanban board's
   drag-and-drop is keyboard-operable (dnd-kit's `KeyboardSensor`: Tab to a card, Space to pick
@@ -204,7 +206,13 @@ packages/
   reached that stage). Ignored jobs are purged automatically ~2 hours after being ignored to
   keep the table from growing unbounded — see `apps/worker/src/inbox-cleanup.ts`. One
   consequence: if an ignored-and-purged job gets re-scraped later (e.g. it's still live on the
-  career page), it reappears as a new discovery rather than staying suppressed.
+  career page), it reappears as a new discovery rather than staying suppressed. Every row also has
+  a selection checkbox, plus a "Select all" that covers the whole current filtered view (not just
+  virtualized rows actually mounted) — pairs naturally with the company filter for "select
+  everything from this company and ignore it in one go." The bulk toolbar reuses the exact same
+  per-job logic each row's own action buttons already use (`setInboxStatus`, looped), so a bulk
+  Apply creates one real Application per job rather than skipping that bookkeeping for the sake
+  of a single faster query.
 - Generic (non-ATS) career pages that paginate are now followed via `rel="next"` up to 25 pages
   — verified against a live 12-page board (90 postings collected across 3 real pages before a
   transient bot-throttle from repeated manual testing interrupted the run; the mechanism itself

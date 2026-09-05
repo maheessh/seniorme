@@ -94,3 +94,17 @@ export async function setInboxStatus(jobId: string, status: InboxStatus): Promis
 export async function clearPossibleDuplicate(jobId: string): Promise<void> {
   await prisma.job.update({ where: { id: jobId }, data: { possibleDuplicateOfId: null } });
 }
+
+/**
+ * Applies a status change to several jobs at once (bulk select in the Inbox — e.g. "ignore
+ * everything I just filtered down to for this company"). Reuses `setInboxStatus` per job rather
+ * than a single `updateMany`, since each one also logs its own ActivityEvent and (for APPLIED)
+ * creates its own Application/ApplicationEvent — a bulk-optimized single query would either lose
+ * that per-job bookkeeping or need to reimplement it, and a batch here is realistically dozens to
+ * a few hundred jobs, not a scale where the query-per-job cost actually matters.
+ */
+export async function bulkSetInboxStatus(jobIds: string[], status: InboxStatus): Promise<void> {
+  for (const jobId of jobIds) {
+    await setInboxStatus(jobId, status);
+  }
+}

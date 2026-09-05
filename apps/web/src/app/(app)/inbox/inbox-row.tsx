@@ -33,16 +33,20 @@ export function InboxRow({
   job,
   focused,
   expanded,
+  selected,
   onFocus,
   onToggleExpand,
+  onToggleSelect,
   onAct,
   onDismissDuplicate,
 }: {
   job: InboxJob;
   focused: boolean;
   expanded: boolean;
+  selected: boolean;
   onFocus: () => void;
   onToggleExpand: () => void;
+  onToggleSelect: () => void;
   onAct: (status: InboxStatus) => void;
   onDismissDuplicate: () => void;
 }) {
@@ -54,10 +58,19 @@ export function InboxRow({
       className={cn(
         "flex flex-col gap-2 rounded-xl border p-4 transition-colors cursor-pointer",
         focused ? "border-primary bg-muted/50" : "border-border hover:bg-muted/30",
+        selected && "bg-primary/5",
       )}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-start gap-3">
+          <input
+            type="checkbox"
+            aria-label={`Select ${job.title}`}
+            checked={selected}
+            onChange={onToggleSelect}
+            onClick={(event) => event.stopPropagation()}
+            className="mt-1.5 h-4 w-4 shrink-0 rounded border-input"
+          />
           <CompanyLogo logoUrl={job.company.logoUrl} name={job.company.name} size={36} />
           <div className="min-w-0">
             <button

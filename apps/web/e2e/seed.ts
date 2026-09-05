@@ -69,6 +69,79 @@ async function main() {
     },
   });
 
+  // A third company with two of its own NEW jobs, dedicated to the bulk-select spec — that test
+  // filters down to just this company and bulk-ignores everything it finds, which would
+  // otherwise permanently consume "Software Engineer, Platform"/"Data Analyst Intern" (globalSetup
+  // seeds once for the whole run, not per test file) and break every other spec that expects
+  // those two to still be sitting in New.
+  const thirdCompany = await prisma.company.create({
+    data: { name: "Vandelay Industries", priority: "LOW", monitoringEnabled: true },
+  });
+  await prisma.job.create({
+    data: {
+      companyId: thirdCompany.id,
+      title: "QA Engineer",
+      location: "Chicago, IL",
+      workMode: "ONSITE",
+      employmentType: "FULL_TIME",
+      url: "https://boards.greenhouse.io/vandelay-e2e-fixture/jobs/1",
+      canonicalUrlHash: "e2e-fixture-hash-4",
+      externalJobId: "e2e-4",
+      inboxStatus: "NEW",
+      postedAt: new Date(),
+    },
+  });
+  await prisma.job.create({
+    data: {
+      companyId: thirdCompany.id,
+      title: "DevOps Engineer",
+      location: "Chicago, IL",
+      workMode: "ONSITE",
+      employmentType: "FULL_TIME",
+      url: "https://boards.greenhouse.io/vandelay-e2e-fixture/jobs/2",
+      canonicalUrlHash: "e2e-fixture-hash-5",
+      externalJobId: "e2e-5",
+      inboxStatus: "NEW",
+      postedAt: new Date(),
+    },
+  });
+
+  // A fourth company, separate from Vandelay above — the bulk-select spec's *other* test
+  // (checking the indeterminate "select all" state) only deselects one job rather than
+  // bulk-ignoring, but still needs its own untouched pair so test declaration order within the
+  // file can't make it see jobs the first test already ignored.
+  const fourthCompany = await prisma.company.create({
+    data: { name: "Sterling Cooper", priority: "LOW", monitoringEnabled: true },
+  });
+  await prisma.job.create({
+    data: {
+      companyId: fourthCompany.id,
+      title: "Support Engineer",
+      location: "Chicago, IL",
+      workMode: "ONSITE",
+      employmentType: "FULL_TIME",
+      url: "https://boards.greenhouse.io/sterling-cooper-e2e-fixture/jobs/1",
+      canonicalUrlHash: "e2e-fixture-hash-6",
+      externalJobId: "e2e-6",
+      inboxStatus: "NEW",
+      postedAt: new Date(),
+    },
+  });
+  await prisma.job.create({
+    data: {
+      companyId: fourthCompany.id,
+      title: "Backend Engineer, Platform",
+      location: "Chicago, IL",
+      workMode: "ONSITE",
+      employmentType: "FULL_TIME",
+      url: "https://boards.greenhouse.io/sterling-cooper-e2e-fixture/jobs/2",
+      canonicalUrlHash: "e2e-fixture-hash-7",
+      externalJobId: "e2e-7",
+      inboxStatus: "NEW",
+      postedAt: new Date(),
+    },
+  });
+
   const pipelineJob = await prisma.job.create({
     data: {
       companyId: company.id,
