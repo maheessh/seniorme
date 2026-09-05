@@ -158,28 +158,91 @@ export function extractGenericBoardPostings(html: string, baseUrl: string): Gene
  * or is unexpectedly deep — protects against runaway fetch chains against one host. */
 const MAX_PAGES = 25;
 
+const NEXT_LINK_TEXT_RE = /^(?:next|next page|»|›|→|>|»»|next\s*»|next\s*›)$/i;
+
 /**
- * Finds the next page in a paginated listing via the standard `rel="next"` signal (either an
- * `<a rel="next">` in the page body or a `<link rel="next">` in the head — both are common,
- * unambiguous conventions, unlike guessing at "page=N+1" query params, which risks looping
- * forever or wandering off the listing entirely on a site that doesn't actually paginate that
- * way). Returns null if there's no next page, it points off-host, or it points back at the
- * current page (loop guard).
+ * A numbered pagination control ("1 2 3 ... 10") almost always marks its own page differently
+ * from the rest — not a link at all (a <span>/<li>/<button>), or an <a> flagged with
+ * `aria-current="page"` or an "active"/"current"/"selected" class — while every *other* page
+ * number is a real, clickable `<a href>`. Scans for exactly that shape: a page number's OWN text
+ * (not a descendant's — an `<li><a>2</a></li>` must not also count the `<li>` as a second "2"),
+ * picks out whichever one is the current page, and returns the href of the next number up.
+ * Returns null if there's no such cluster, or the "next" number has no real href to follow (e.g.
+ * a JS-only pager with no navigable URL at all — nothing this can safely act on).
+ */
+function findNextNumberedPageUrl(
+  $: ReturnType<typeof cheerio.load>,
+  resolve: (href: string | undefined) => string | null,
+): string | null {
+  type Entry = { num: number; href: string | undefined; isCurrent: boolean };
+  const entries: Entry[] = [];
+
+  $("a, span, li, button").each((_, el) => {
+    const $el = $(el);
+    const ownText = $el.clone().children().remove().end().text().trim();
+    if (!/^\d{1,4}$/.test(ownText)) return;
+
+    const num = Number(ownText);
+    const isLink = $el.is("a");
+    const isCurrent =
+      $el.attr("aria-current") === "page" ||
+      /\b(active|current|selected)\b/i.test($el.attr("class") ?? "") ||
+      !isLink; // a bare page number that isn't itself a link is almost always "you are here"
+    const href = isLink ? $el.attr("href") : $el.find("a").attr("href");
+    entries.push({ num, href, isCurrent });
+  });
+
+  // Need at least two distinct page numbers for this to mean anything — a single stray digit
+  // elsewhere on the page (a count, a price, an ID) shouldn't be mistaken for pagination.
+  const distinctNums = new Set(entries.map((e) => e.num));
+  if (distinctNums.size < 2) return null;
+
+  const current = entries.find((e) => e.isCurrent) ?? entries.reduce((a, b) => (a.num < b.num ? a : b));
+  const next = entries.filter((e) => e.num > current.num).sort((a, b) => a.num - b.num)[0];
+  return next ? resolve(next.href) : null;
+}
+
+/**
+ * Finds the next page in a paginated listing. Tries three signals, most reliable first:
+ * 1. `rel="next"` (an `<a rel="next">` in the body or a `<link rel="next">` in `<head>`) — the
+ *    standard, unambiguous convention.
+ * 2. A numbered pagination control ("1 2 3 ... 10") — see findNextNumberedPageUrl.
+ * 3. A "Next"/"›"/"»" labeled link with a real `href`, for sites that render next/previous
+ *    controls without the formal `rel="next"` attribute.
+ * Returns null if none of these find anything, the target points off-host, or it points back at
+ * the current page (loop guard) — deliberately never falls back to guessing at "page=N+1"-style
+ * query params on its own, which risks looping forever or wandering off the listing entirely on
+ * a site that doesn't actually paginate that way.
  */
 export function findNextPageUrl(html: string, currentUrl: string): string | null {
   const $ = cheerio.load(html);
-  const href = $('a[rel="next"], link[rel="next"]').first().attr("href");
-  if (!href) return null;
+  const current = new URL(currentUrl);
 
-  try {
-    const current = new URL(currentUrl);
-    const next = new URL(href, current);
-    if (next.hostname !== current.hostname) return null;
-    if (next.toString() === current.toString()) return null;
-    return next.toString();
-  } catch {
-    return null;
-  }
+  const resolve = (href: string | undefined): string | null => {
+    if (!href) return null;
+    try {
+      const next = new URL(href, current);
+      if (next.hostname !== current.hostname) return null;
+      if (next.toString() === current.toString()) return null;
+      return next.toString();
+    } catch {
+      return null;
+    }
+  };
+
+  const viaRel = resolve($('a[rel="next"], link[rel="next"]').first().attr("href"));
+  if (viaRel) return viaRel;
+
+  const viaNumbered = findNextNumberedPageUrl($, resolve);
+  if (viaNumbered) return viaNumbered;
+
+  const viaNextText = resolve(
+    $("a[href]")
+      .filter((_, el) => NEXT_LINK_TEXT_RE.test($(el).text().trim()))
+      .first()
+      .attr("href"),
+  );
+  return viaNextText;
 }
 
 /**

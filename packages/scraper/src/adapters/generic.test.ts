@@ -186,4 +186,74 @@ describe("findNextPageUrl", () => {
     const html = `<a rel="next" href="${BASE_URL}">Next</a>`;
     expect(findNextPageUrl(html, BASE_URL)).toBeNull();
   });
+
+  it("follows numbered pagination — current page marked with aria-current", () => {
+    const html = [
+      `<nav class="pagination">`,
+      `<a href="/jobs/search?page=1">1</a>`,
+      `<a href="/jobs/search?page=2" aria-current="page">2</a>`,
+      `<a href="/jobs/search?page=3">3</a>`,
+      `</nav>`,
+    ].join("\n");
+    expect(findNextPageUrl(html, "https://careers.example.com/jobs/search?page=2")).toBe(
+      "https://careers.example.com/jobs/search?page=3",
+    );
+  });
+
+  it("follows numbered pagination — current page rendered as a non-link (the common shape)", () => {
+    const html = [
+      `<ul class="pager">`,
+      `<li><a href="/jobs/search?page=1">1</a></li>`,
+      `<li class="active">2</li>`,
+      `<li><a href="/jobs/search?page=3">3</a></li>`,
+      `</ul>`,
+    ].join("\n");
+    expect(findNextPageUrl(html, "https://careers.example.com/jobs/search?page=2")).toBe(
+      "https://careers.example.com/jobs/search?page=3",
+    );
+  });
+
+  it("picks the lowest page number as 'current' when nothing marks one explicitly", () => {
+    // A bare list of page links with no current-page indicator at all — treat the lowest as
+    // where we are (we're following forward from the first URL we fetch) and go to the next.
+    const html = [
+      `<a href="/jobs/search?page=1">1</a>`,
+      `<a href="/jobs/search?page=2">2</a>`,
+      `<a href="/jobs/search?page=3">3</a>`,
+    ].join("\n");
+    expect(findNextPageUrl(html, "https://careers.example.com/jobs/search?page=1")).toBe(
+      "https://careers.example.com/jobs/search?page=2",
+    );
+  });
+
+  it("ignores a single stray digit that isn't part of a real pagination cluster", () => {
+    const html = `<span class="job-count">42</span> open roles`;
+    expect(findNextPageUrl(html, BASE_URL)).toBeNull();
+  });
+
+  it("returns null for numbered pagination with no real href on the next page (JS-only pager)", () => {
+    const html = [
+      `<button class="active">1</button>`,
+      `<button data-page="2">2</button>`,
+      `<button data-page="3">3</button>`,
+    ].join("\n");
+    expect(findNextPageUrl(html, BASE_URL)).toBeNull();
+  });
+
+  it("follows a 'Next' text link with no rel=\"next\" attribute", () => {
+    const html = `<a href="/jobs/search?page=2">Next ›</a>`;
+    expect(findNextPageUrl(html, BASE_URL)).toBe("https://careers.example.com/jobs/search?page=2");
+  });
+
+  it("prefers rel=\"next\" over a numbered-pagination match when both are present", () => {
+    const html = [
+      `<a rel="next" href="/jobs/search?page=5">Skip ahead</a>`,
+      `<a href="/jobs/search?page=1">1</a>`,
+      `<a href="/jobs/search?page=2" aria-current="page">2</a>`,
+      `<a href="/jobs/search?page=3">3</a>`,
+    ].join("\n");
+    expect(findNextPageUrl(html, "https://careers.example.com/jobs/search?page=2")).toBe(
+      "https://careers.example.com/jobs/search?page=5",
+    );
+  });
 });

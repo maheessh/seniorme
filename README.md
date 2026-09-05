@@ -30,7 +30,7 @@ global command palette (`⌘K`/`Ctrl+K`, search-to-jump across every page), keyb
 Kanban drag-and-drop, a WCAG-AA color contrast pass, a virtualized Inbox list (career-page
 pagination means the New tab routinely holds 100+ jobs — only the rows near the viewport are
 ever mounted), a per-page browser tab title on every route, a skip-to-content link, and a
-136-test unit/integration suite plus a 10-scenario Playwright E2E suite covering the flows in
+143-test unit/integration suite plus a 10-scenario Playwright E2E suite covering the flows in
 `ARCHITECTURE.md` §12 (see "Running tests"). All ten phases from `ARCHITECTURE.md` §14 are done.
 
 This app has no login and no `User` model — it's a single-person, local-only tool, and there
@@ -168,7 +168,7 @@ packages/
 ## Known limitations
 
 - All ten phases from `ARCHITECTURE.md` §14 are complete. Test coverage: `packages/scraper` has an
-  93-test Vitest unit suite (URL/content normalization, ATS-type detection, both JSON-LD
+  100-test Vitest unit suite (URL/content normalization, ATS-type detection, both JSON-LD
   extraction paths, the generic HTML-link heuristic's guard rails, `rel="next"` pagination, the
   iCIMS adapter, and the SSRF guard's IP-blocking — writing that last suite caught two real bugs,
   both fixed: IPv6-literal blocking was silently unreachable due to how `URL.hostname` brackets
@@ -209,7 +209,20 @@ packages/
   — verified against a live 12-page board (90 postings collected across 3 real pages before a
   transient bot-throttle from repeated manual testing interrupted the run; the mechanism itself
   is confirmed correct, not synthetic). A later page failing outright no longer discards
-  postings already found on earlier pages.
+  postings already found on earlier pages. Pagination detection isn't limited to `rel="next"`
+  either — `findNextPageUrl` (`packages/scraper/src/adapters/generic.ts`) also recognizes a
+  numbered "1 2 3 ... 10" control (finds whichever page is marked current — `aria-current`, an
+  "active"/"current" class, or simply not a link while its siblings are — and follows the next
+  number's real `href`) and a "Next"/"›"/"»" text link with no `rel` attribute at all, so most
+  career boards' pagination gets followed automatically regardless of which of these three common
+  conventions they happen to use. The headless-Chromium tier now follows the same detection
+  across multiple *rendered* pages too, for sites that need JS rendering and paginate — it used to
+  stop at whatever was visible on the first render. None of this drives a JS-only "Load more"
+  button with no real navigable URL at all (verified against Amazon's and a Paycom ATS board's
+  own pagers, both button/input-driven with no `href` to follow) — that's a distinct, harder
+  problem (simulating clicks and detecting a stopping point without a URL to compare against)
+  that wasn't attempted here; those sources stay conservatively marked incomplete rather than
+  silently missing pages.
 - The iCIMS adapter's own pagination had the same gap for a while, for a different reason: only
   the first/default search page embeds the `jobImpressions` tracking data it reads — the
   `?pr=N` paginated result pages render the same postings as plain HTML job cards instead, with
