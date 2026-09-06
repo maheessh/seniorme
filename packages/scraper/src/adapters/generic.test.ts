@@ -42,6 +42,24 @@ describe("extractGenericBoardPostings — HTML-link heuristic tier", () => {
     ]);
   });
 
+  it("recognizes 'role'/'vacancy'/'opportunity'-style path vocabulary, not just job/career/position/opening", () => {
+    // Real regression: Zipline's board uses /open-roles/<id> — "open-roles" never appears as an
+    // exact "/jobs/", "/careers/", "/positions/", or "/openings/" segment, so every link on the
+    // page was silently rejected and the whole source failed with "no job postings found" despite
+    // 10+ real, linkable postings being right there in the rendered HTML.
+    const html = [
+      `<a href="/open-roles/7895360003">Account Executive</a>`,
+      `<a href="/open-vacancies/200456">Data Scientist</a>`,
+      `<a href="/current-opportunities/300789">Product Manager</a>`,
+    ].join("\n");
+    const result = extractGenericBoardPostings(html, BASE_URL);
+    expect(result?.postings.map((p) => p.title)).toEqual([
+      "Account Executive",
+      "Data Scientist",
+      "Product Manager",
+    ]);
+  });
+
   it("returns null (not an empty result) below the minimum-match threshold — noise, not a real listing", () => {
     const html = [
       `<a href="/jobs/software-engineer-abc">Software Engineer</a>`,

@@ -30,7 +30,7 @@ global command palette (`⌘K`/`Ctrl+K`, search-to-jump across every page), keyb
 Kanban drag-and-drop, a WCAG-AA color contrast pass, a virtualized Inbox list (career-page
 pagination means the New tab routinely holds 100+ jobs — only the rows near the viewport are
 ever mounted), a per-page browser tab title on every route, a skip-to-content link, and a
-143-test unit/integration suite plus a 12-scenario Playwright E2E suite covering the flows in
+144-test unit/integration suite plus a 12-scenario Playwright E2E suite covering the flows in
 `ARCHITECTURE.md` §12 (see "Running tests"). All ten phases from `ARCHITECTURE.md` §14 are done.
 
 This app has no login and no `User` model — it's a single-person, local-only tool, and there
@@ -170,7 +170,7 @@ packages/
 ## Known limitations
 
 - All ten phases from `ARCHITECTURE.md` §14 are complete. Test coverage: `packages/scraper` has an
-  100-test Vitest unit suite (URL/content normalization, ATS-type detection, both JSON-LD
+  101-test Vitest unit suite (URL/content normalization, ATS-type detection, both JSON-LD
   extraction paths, the generic HTML-link heuristic's guard rails, `rel="next"` pagination, the
   iCIMS adapter, and the SSRF guard's IP-blocking — writing that last suite caught two real bugs,
   both fixed: IPv6-literal blocking was silently unreachable due to how `URL.hostname` brackets
@@ -275,6 +275,18 @@ packages/
   that heading, the mirror image of the "clickable card" layout already handled, and needed a
   precise per-text-node location match (not a substring search across the whole card's
   concatenated text) to avoid pulling in neighboring words.
+- The generic HTML-link heuristic's job-path check used to only recognize an exact "/jobs/",
+  "/careers/", "/positions/", or "/openings/" segment — a real bug, not just a narrow edge case:
+  Zipline's board uses `/open-roles/<id>`, and since "open-roles" never appears as one of those
+  four exact segments, every single link on the page was silently rejected and the source failed
+  outright with "no job postings found," despite 10+ real, linkable postings sitting right there
+  in the rendered HTML. Now matches a path segment that *contains* one of a wider set of stems
+  ("role(s)", "vacanc(y/ies)", "opportunit(y/ies)", alongside the original four) rather than
+  requiring an exact segment, so a compound segment like "open-roles" or "current-opportunities"
+  still counts. Verified against Zipline's real board end-to-end through the actual worker
+  pipeline (0 → 10 postings found and stored) — and since this is the shared heuristic every
+  generic-tier source goes through, any other company whose board happened to use this same kind
+  of URL vocabulary is fixed by the same change, not just Zipline specifically.
 - Company logos are derived automatically from the domain (via DuckDuckGo's icon service) at
   create/update time — there's no manual upload path, by design.
 - Fuzzy-duplicate detection (pg_trgm title similarity) flags a possible repost for review in

@@ -6,7 +6,16 @@ import { isAllowedByRobots } from "../robots";
 import { safeFetchText } from "../safe-fetch";
 import type { RawJobPosting } from "../types";
 
-const JOB_PATH_RE = /\/(?:jobs?|careers?|positions?|openings?)\/[a-z0-9][a-z0-9._-]{2,}/i;
+// Matches a path segment that *contains* one of these stems — not just an exact "/jobs/" or
+// "/careers/" segment — so a compound segment like Zipline's "/open-roles/7895360003" (the
+// keyword "role" with an "open-" prefix) still counts. Confirmed live: the exact-segment version
+// of this regex missed every single link on Zipline's board, since "open-roles" never appears as
+// a bare "/jobs/", "/careers/", "/positions/", or "/openings/" segment — the site just uses
+// different, equally common vocabulary. "role"/"vacan(cy)"/"opportunit(y)" cover other common
+// phrasings; kept to whole-word-ish stems (not just "job") to avoid matching unrelated segments
+// that merely contain those letters.
+const JOB_PATH_RE = /\/[a-z0-9-]*(?:jobs?|careers?|positions?|openings?|roles?|vacan(?:cy|cies)|opportunit(?:y|ies))[a-z0-9-]*\/[a-z0-9][a-z0-9._-]{2,}/i;
+
 const GENERIC_LINK_TEXT = new Set([
   "apply",
   "apply now",
