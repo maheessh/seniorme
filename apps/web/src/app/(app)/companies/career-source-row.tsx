@@ -2,15 +2,33 @@
 
 import type { CareerSource } from "@ccc/db";
 import { formatDistanceToNow } from "date-fns";
-import { AlertTriangle, RefreshCw, Trash2 } from "lucide-react";
+import { AlertTriangle, LifeBuoy, RefreshCw, Trash2 } from "lucide-react";
 import { useState, useTransition } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { deleteCareerSourceAction, toggleCareerSourceActiveAction, triggerScrapeAction } from "./career-sources-actions";
+import {
+  deleteCareerSourceAction,
+  requestScraperSupportAction,
+  toggleCareerSourceActiveAction,
+  triggerScrapeAction,
+} from "./career-sources-actions";
 
-export function CareerSourceRow({ source }: { source: CareerSource }) {
+export function CareerSourceRow({
+  source,
+  companyId,
+  alreadyRequested = false,
+}: {
+  source: CareerSource;
+  companyId: string;
+  alreadyRequested?: boolean;
+}) {
   const [pending, startTransition] = useTransition();
   const [refreshError, setRefreshError] = useState<string | null>(null);
+  const [requested, setRequested] = useState(alreadyRequested);
+  const [requestError, setRequestError] = useState<string | null>(null);
+
+  // Our scraper couldn't handle this board — offer to send it to the team to build support.
+  const hasError = source.consecutiveFailures > 0 || Boolean(source.lastError);
 
   return (
     <div className="flex flex-col gap-2 rounded-lg border border-border p-3">
@@ -91,6 +109,40 @@ export function CareerSourceRow({ source }: { source: CareerSource }) {
         <p className="text-xs text-destructive">{source.lastError}</p>
       ) : null}
       {refreshError ? <p className="text-xs text-destructive">{refreshError}</p> : null}
+
+      {hasError ? (
+        <div className="flex flex-col gap-1 border-t border-border pt-2">
+          {requested ? (
+            <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <LifeBuoy className="h-3.5 w-3.5" />
+              Sent to the team — we&apos;ll notify you when scraping support is ready.
+            </p>
+          ) : (
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs text-muted-foreground">
+                Can&apos;t scrape this board? Send it to us to build support.
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={pending}
+                onClick={() => {
+                  setRequestError(null);
+                  startTransition(async () => {
+                    const result = await requestScraperSupportAction(companyId, source.id);
+                    if (result.error) setRequestError(result.error);
+                    else setRequested(true);
+                  });
+                }}
+              >
+                <LifeBuoy className="h-3.5 w-3.5" /> Request support
+              </Button>
+            </div>
+          )}
+          {requestError ? <p className="text-xs text-destructive">{requestError}</p> : null}
+        </div>
+      ) : null}
     </div>
   );
 }

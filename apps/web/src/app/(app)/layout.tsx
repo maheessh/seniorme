@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { Sidebar } from "@/components/sidebar";
 import { Topbar } from "@/components/topbar";
+import { isCurrentUserAdmin } from "@/lib/server/auth-helpers";
 import { getUnreadNotificationCount } from "@/lib/server/services/notifications";
 
 // Segment config is inherited by every nested layout/page. auth()'s cookie read below
@@ -16,7 +17,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     redirect("/sign-in");
   }
 
-  const unreadNotificationCount = await getUnreadNotificationCount(session.user.id);
+  const [unreadNotificationCount, isAdmin] = await Promise.all([
+    getUnreadNotificationCount(session.user.id),
+    isCurrentUserAdmin(),
+  ]);
 
   return (
     <div className="flex h-screen w-full">
@@ -26,7 +30,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       >
         Skip to main content
       </a>
-      <Sidebar unreadNotificationCount={unreadNotificationCount} />
+      <Sidebar unreadNotificationCount={unreadNotificationCount} isAdmin={isAdmin} />
       <div className="flex min-w-0 flex-1 flex-col">
         <Topbar email={session.user.email ?? ""} />
         <main id="main-content" className="flex-1 overflow-y-auto p-6">

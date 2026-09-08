@@ -7,4 +7,5 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   INTERVIEW_APPROACHING: "Interview",
   GOAL_DEADLINE: "Goal deadline",
   SCRAPER_FAILING: "Scraper issue",
+  SCRAPER_REQUEST_RESOLVED: "Scraper update",
 };

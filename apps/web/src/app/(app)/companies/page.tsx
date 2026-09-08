@@ -4,6 +4,7 @@ import { EmptyState } from "@/components/empty-state";
 import { Button } from "@/components/ui/button";
 import { requireUserId } from "@/lib/server/auth-helpers";
 import { listCompanies } from "@/lib/server/services/companies";
+import { getOpenRequestSourceIds } from "@/lib/server/services/support-requests";
 import { CompaniesToolbar } from "./companies-toolbar";
 
 export const metadata: Metadata = { title: "Companies" };
@@ -25,7 +26,10 @@ export default async function CompaniesPage({
       : undefined;
 
   const userId = await requireUserId();
-  const companies = await listCompanies(userId, { search: params.search, priority });
+  const [companies, requestedSourceIds] = await Promise.all([
+    listCompanies(userId, { search: params.search, priority }),
+    getOpenRequestSourceIds(userId),
+  ]);
   const hasAnyCompanies = companies.length > 0 || Boolean(params.search || priority);
 
   return (
@@ -45,11 +49,11 @@ export default async function CompaniesPage({
               No companies match your filters.
             </p>
           ) : params.view === "table" ? (
-            <CompanyTable companies={companies} />
+            <CompanyTable companies={companies} requestedSourceIds={requestedSourceIds} />
           ) : (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {companies.map((company) => (
-                <CompanyCard key={company.id} company={company} />
+                <CompanyCard key={company.id} company={company} requestedSourceIds={requestedSourceIds} />
               ))}
             </div>
           )}

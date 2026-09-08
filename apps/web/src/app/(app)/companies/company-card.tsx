@@ -11,7 +11,13 @@ import { ScrapeCompanyButton } from "./scrape-company-button";
 
 const PRIORITY_VARIANT = { LOW: "default", MEDIUM: "primary", HIGH: "warning" } as const;
 
-export function CompanyCard({ company }: { company: CompanyWithSources }) {
+export function CompanyCard({
+  company,
+  requestedSourceIds = [],
+}: {
+  company: CompanyWithSources;
+  requestedSourceIds?: string[];
+}) {
   return (
     <Card className="flex flex-col gap-3 p-5">
       <div className="flex items-start justify-between gap-3">
@@ -30,6 +36,7 @@ export function CompanyCard({ company }: { company: CompanyWithSources }) {
             companyId={company.id}
             companyName={company.name}
             sources={company.careerSources}
+            requestedSourceIds={requestedSourceIds}
             trigger={
               <Button
                 type="button"

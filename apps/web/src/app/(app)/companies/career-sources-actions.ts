@@ -2,6 +2,7 @@
 
 import { careerSourceInputSchema } from "@ccc/shared";
 import { revalidatePath } from "next/cache";
+import { requireUserId } from "@/lib/server/auth-helpers";
 import {
   addCareerSource,
   deleteCareerSource,
@@ -10,6 +11,22 @@ import {
   triggerScrape,
   TriggerTooSoonError,
 } from "@/lib/server/services/career-sources";
+import { createSupportRequest, SupportRequestError } from "@/lib/server/services/support-requests";
+
+export async function requestScraperSupportAction(
+  companyId: string,
+  careerSourceId: string,
+): Promise<{ error?: string; ok?: true }> {
+  const userId = await requireUserId();
+  try {
+    await createSupportRequest(userId, { companyId, careerSourceId });
+  } catch (error) {
+    if (error instanceof SupportRequestError) return { error: error.message };
+    return { error: "Couldn't send the request. Try again." };
+  }
+  revalidatePath("/companies");
+  return { ok: true };
+}
 
 export type CareerSourceFormState = { error?: string; ok?: true } | undefined;
 

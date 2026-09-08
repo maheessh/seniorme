@@ -10,7 +10,13 @@ import { ScrapeCompanyButton } from "./scrape-company-button";
 
 const PRIORITY_VARIANT = { LOW: "default", MEDIUM: "primary", HIGH: "warning" } as const;
 
-export function CompanyTable({ companies }: { companies: CompanyWithSources[] }) {
+export function CompanyTable({
+  companies,
+  requestedSourceIds = [],
+}: {
+  companies: CompanyWithSources[];
+  requestedSourceIds?: string[];
+}) {
   return (
     <div className="overflow-x-auto rounded-xl border border-border">
       <table className="w-full text-sm">
@@ -51,6 +57,7 @@ export function CompanyTable({ companies }: { companies: CompanyWithSources[] })
                     companyId={company.id}
                     companyName={company.name}
                     sources={company.careerSources}
+                    requestedSourceIds={requestedSourceIds}
                     trigger={
                       <Button
                         type="button"

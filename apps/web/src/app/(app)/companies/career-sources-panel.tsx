@@ -13,11 +13,13 @@ export function CareerSourcesPanel({
   companyId,
   companyName,
   sources,
+  requestedSourceIds = [],
   trigger,
 }: {
   companyId: string;
   companyName: string;
   sources: CareerSource[];
+  requestedSourceIds?: string[];
   trigger: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
@@ -49,7 +51,14 @@ export function CareerSourcesPanel({
               <p className="text-sm text-muted-foreground">No career pages added yet.</p>
             </div>
           ) : (
-            sources.map((source) => <CareerSourceRow key={source.id} source={source} />)
+            sources.map((source) => (
+              <CareerSourceRow
+                key={source.id}
+                source={source}
+                companyId={companyId}
+                alreadyRequested={requestedSourceIds.includes(source.id)}
+              />
+            ))
           )}
         </div>
 

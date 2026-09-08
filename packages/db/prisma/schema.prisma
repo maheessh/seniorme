@@ -102,6 +102,13 @@ enum NotificationType {
   INTERVIEW_APPROACHING
   GOAL_DEADLINE
   SCRAPER_FAILING
+  SCRAPER_REQUEST_RESOLVED
+}
+
+enum SupportRequestStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
 }
 
 // -------------------- Models --------------------
@@ -115,17 +122,22 @@ model User {
   emailVerified DateTime?
   name          String?
   image         String?
+  /// Grants access to the /admin area (scraper-support queue). Promoted automatically on
+  /// sign-in for any email in the ADMIN_EMAILS allowlist (see auth.ts), so a fresh production
+  /// account becomes admin without a manual DB edit.
+  isAdmin       Boolean   @default(false)
   createdAt     DateTime  @default(now())
 
-  accounts      Account[]
-  userCompanies UserCompany[]
-  jobStatuses   UserJobStatus[]
-  applications  Application[]
-  contacts      Contact[]
-  projects      Project[]
-  goals         Goal[]
-  activity      ActivityEvent[]
-  notifications Notification[]
+  accounts        Account[]
+  userCompanies   UserCompany[]
+  jobStatuses     UserJobStatus[]
+  applications    Application[]
+  contacts        Contact[]
+  projects        Project[]
+  goals           Goal[]
+  activity        ActivityEvent[]
+  notifications   Notification[]
+  supportRequests ScraperSupportRequest[]
 }
 
 /// Auth.js OAuth account-linking table. JWT session strategy is used, so no
@@ -162,11 +174,12 @@ model Company {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  careerSources CareerSource[]
-  jobs          Job[]
-  applications  Application[]
-  contacts      Contact[]
-  userCompanies UserCompany[]
+  careerSources   CareerSource[]
+  jobs            Job[]
+  applications    Application[]
+  contacts        Contact[]
+  userCompanies   UserCompany[]
+  supportRequests ScraperSupportRequest[]
 }
 
 /// A user's personal relationship to a shared Company: whether they track it, how they've
@@ -215,10 +228,42 @@ model CareerSource {
   lastError           String?
   createdAt           DateTime   @default(now())
 
-  scrapeRuns ScrapeRun[]
-  jobs       Job[]
+  scrapeRuns      ScrapeRun[]
+  jobs            Job[]
+  supportRequests ScraperSupportRequest[]
 
   @@unique([companyId, url])
+}
+
+/// A user's request for the team to build/fix scraping support for a company whose career
+/// board our tiers can't handle (the scrape errored). The company/source details are
+/// snapshotted at request time so the admin queue still shows what was submitted even if the
+/// underlying company or source is later edited or removed.
+model ScraperSupportRequest {
+  id             String        @id @default(cuid())
+  userId         String
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  companyId      String
+  company        Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  /// Nullable + SetNull rather than Cascade: if the specific source row is deleted, the request
+  /// stays in the admin queue with its snapshotted url/error intact.
+  careerSourceId String?
+  careerSource   CareerSource? @relation(fields: [careerSourceId], references: [id], onDelete: SetNull)
+
+  companyName  String
+  domain       String?
+  website      String?
+  sourceUrl    String
+  errorMessage String?
+  note         String?
+
+  status     SupportRequestStatus @default(OPEN)
+  createdAt  DateTime             @default(now())
+  updatedAt  DateTime             @updatedAt
+  resolvedAt DateTime?
+
+  @@index([status, createdAt])
+  @@index([userId])
 }
 
 model ScrapeRun {

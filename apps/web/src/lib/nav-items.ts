@@ -1,4 +1,14 @@
-import { BarChart3, Bell, Building2, FolderKanban, Inbox, Kanban, LayoutDashboard, Target } from "lucide-react";
+import {
+  BarChart3,
+  Bell,
+  Building2,
+  FolderKanban,
+  Inbox,
+  Kanban,
+  LayoutDashboard,
+  LifeBuoy,
+  Target,
+} from "lucide-react";
 
 export const NAV_ITEMS = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -10,3 +20,11 @@ export const NAV_ITEMS = [
   { href: "/analytics", label: "Analytics", icon: BarChart3 },
   { href: "/notifications", label: "Notifications", icon: Bell },
 ];
+
+// Appended to the nav only for admins (see Sidebar). Separate from NAV_ITEMS so a non-admin
+// never even receives it in their rendered markup.
+export const ADMIN_NAV_ITEM = {
+  href: "/admin/scraper-requests",
+  label: "Scraper requests",
+  icon: LifeBuoy,
+};

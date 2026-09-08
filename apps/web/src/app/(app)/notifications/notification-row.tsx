@@ -9,6 +9,7 @@ import {
   Calendar,
   CheckCircle2,
   Clock,
+  LifeBuoy,
   Target,
   Trash2,
   type LucideIcon,
@@ -27,6 +28,7 @@ const TYPE_ICON: Record<Notification["type"], LucideIcon> = {
   INTERVIEW_APPROACHING: Calendar,
   GOAL_DEADLINE: Target,
   SCRAPER_FAILING: AlertTriangle,
+  SCRAPER_REQUEST_RESOLVED: LifeBuoy,
 };
 
 export function NotificationRow({ notification }: { notification: Notification }) {
