@@ -14,7 +14,12 @@ export const authConfig = {
   // standard, correct choice here — see https://errors.authjs.dev#untrustedhost.
   trustHost: true,
   pages: { signIn: "/sign-in" },
-  providers: [Google, GitHub],
+  // GitHub is optional — only registered once its OAuth app credentials exist, so the app
+  // works with Google alone until (if ever) a GitHub app is set up.
+  providers: [
+    Google,
+    ...(process.env.AUTH_GITHUB_ID && process.env.AUTH_GITHUB_SECRET ? [GitHub] : []),
+  ],
   callbacks: {
     authorized({ auth, request }) {
       const isLoggedIn = !!auth?.user;

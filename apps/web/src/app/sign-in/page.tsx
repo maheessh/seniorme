@@ -5,6 +5,10 @@ import { GitHubIcon, GoogleIcon } from "./oauth-icons";
 
 export const metadata: Metadata = { title: "Sign in" };
 
+// GitHub is an optional second provider — only shown once its OAuth app credentials are
+// configured (see auth.config.ts, which registers it under the same condition).
+const githubConfigured = Boolean(process.env.AUTH_GITHUB_ID && process.env.AUTH_GITHUB_SECRET);
+
 export default function SignInPage() {
   return (
     <div className="hero-surface flex min-h-screen items-center justify-center p-6">
@@ -19,11 +23,13 @@ export default function SignInPage() {
               <GoogleIcon /> Continue with Google
             </Button>
           </form>
-          <form action={signInWithGitHub}>
-            <Button type="submit" variant="outline" size="lg" className="w-full">
-              <GitHubIcon /> Continue with GitHub
-            </Button>
-          </form>
+          {githubConfigured ? (
+            <form action={signInWithGitHub}>
+              <Button type="submit" variant="outline" size="lg" className="w-full">
+                <GitHubIcon /> Continue with GitHub
+              </Button>
+            </form>
+          ) : null}
         </div>
       </div>
     </div>
