@@ -33,3 +33,4 @@ coverage/
 
 # turbo/misc caches
 .turbo/
+.vercel
