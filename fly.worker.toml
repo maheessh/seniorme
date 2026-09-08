@@ -1,0 +1,19 @@
+# Deploys apps/worker (the BullMQ scheduler + scrape-queue consumer, including the
+# headless-Chromium fallback tier) as a long-lived background machine — no HTTP service, since
+# this process never serves requests.
+#
+# Build context is the repo root (this file's directory), not apps/worker/, because the
+# Dockerfile's COPY steps reference other workspace packages by their root-relative paths — run
+# every flyctl command from the repo root with `--config fly.worker.toml`.
+app = "senior-me-worker"
+primary_region = "iad"
+
+[build]
+  dockerfile = "apps/worker/Dockerfile"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "1gb"
+
+[processes]
+  app = "pnpm --filter @ccc/worker start"
