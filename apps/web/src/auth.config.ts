@@ -23,12 +23,17 @@ export const authConfig = {
   callbacks: {
     authorized({ auth, request }) {
       const isLoggedIn = !!auth?.user;
-      const isOnSignIn = request.nextUrl.pathname.startsWith("/sign-in");
+      const { pathname } = request.nextUrl;
 
-      if (isOnSignIn) {
+      // The marketing landing page is public — reachable with or without a session.
+      if (pathname === "/") return true;
+
+      // Sign-in is public too, but a signed-in user hitting it goes straight to the app.
+      if (pathname.startsWith("/sign-in")) {
         return isLoggedIn ? Response.redirect(new URL("/dashboard", request.nextUrl)) : true;
       }
 
+      // Everything else (the whole (app)/ tree) requires a session.
       return isLoggedIn;
     },
   },

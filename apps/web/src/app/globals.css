@@ -134,4 +134,12 @@ body {
   .font-display {
     font-family: var(--font-display), ui-serif, Georgia, serif;
   }
+
+  /* Landing hero: a soft, mostly-white wash with just a hint of the brand gradient at the top,
+     so the page reads clean and bright (Dropbox-style) rather than saturated. */
+  .landing-hero {
+    background:
+      radial-gradient(90% 60% at 50% -10%, rgba(79, 91, 255, 0.1) 0%, rgba(79, 91, 255, 0) 60%),
+      var(--background);
+  }
 }
