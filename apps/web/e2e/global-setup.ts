@@ -1,8 +1,9 @@
 import { execSync } from "node:child_process";
 import path from "node:path";
 
-// No login/session to establish anymore — the app has no auth. This just seeds ccc_test with
-// deterministic fixture data before any spec file runs.
+// Seeds ccc_test with deterministic fixture data and mints a signed session for the fixture
+// user (written to e2e/.auth/user.json — see playwright.config.ts's storageState) before any
+// spec file runs.
 export default function globalSetup(): void {
   execSync("npx tsx e2e/seed.ts", {
     cwd: path.resolve(__dirname, ".."),

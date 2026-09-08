@@ -4,7 +4,7 @@ import type { Company } from "@ccc/db";
 import { useEffect, useRef, useState } from "react";
 import { CompanyLogo } from "@/components/company-logo";
 import { Input } from "@/components/ui/input";
-import { searchCompaniesAction } from "./import-actions";
+import { searchAllCompaniesAction } from "./import-actions";
 
 export function CompanyPicker({
   defaultName,
@@ -24,7 +24,7 @@ export function CompanyPicker({
   // submitting that their "new" company was actually reused.
   useEffect(() => {
     if (!defaultName) return;
-    void searchCompaniesAction(defaultName).then((results) => {
+    void searchAllCompaniesAction(defaultName).then((results) => {
       setMatches(results);
       const exact = results.find((company) => company.name.toLowerCase() === defaultName.toLowerCase());
       if (exact) setSelected(exact);
@@ -39,7 +39,7 @@ export function CompanyPicker({
     setOpen(true);
     clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
-      void searchCompaniesAction(value).then(setMatches);
+      void searchAllCompaniesAction(value).then(setMatches);
     }, 200);
   }
 

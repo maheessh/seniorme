@@ -4,6 +4,7 @@ import { FolderKanban, Plus } from "lucide-react";
 import type { Metadata } from "next";
 import { EmptyState } from "@/components/empty-state";
 import { Button } from "@/components/ui/button";
+import { requireUserId } from "@/lib/server/auth-helpers";
 
 export const metadata: Metadata = { title: "Projects" };
 import { listProjects } from "@/lib/server/services/projects";
@@ -22,7 +23,8 @@ export default async function ProjectsPage({
       ? (params.status as ProjectStatus)
       : undefined;
 
-  const projects = await listProjects({ status, search: params.search });
+  const userId = await requireUserId();
+  const projects = await listProjects(userId, { status, search: params.search });
   const hasAny = projects.length > 0 || Boolean(params.search || status);
 
   return (

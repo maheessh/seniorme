@@ -7,6 +7,16 @@ output of the architecture phase. Implementation begins after you review and app
 > and the single-user login described below was removed entirely — this only ever runs locally
 > for one person, so there was nothing for it to authenticate against. See §10 for the current
 > state. The rest of this document is left as the original planning record.
+>
+> **Update (multi-tenant pivot):** that "no auth needed" premise no longer holds — the app is
+> being turned into a real multi-user product. Auth.js v5 is back (Google + GitHub OAuth, JWT
+> sessions, no passwords stored this time), and the schema now splits into a **shared catalog**
+> (`Company`, `CareerSource`, `ScrapeRun`, `Job` — the same scraped data for every user) and a
+> **per-user overlay** (`UserCompany` for tracking/priority/notes/scrape-scope filters,
+> `UserJobStatus` for triage state; `Application`/`Contact`/`Project`/`Goal` now belong to one
+> user directly). Every route under `(app)/` requires a session again. The single-user
+> descriptions below (§1, §7's schema, §10) are historical — see the README's "Multi-tenant data
+> model" section for the current shape.
 
 Decisions already made with you:
 - **Design inspiration**: [cluely.com](https://cluely.com) — soft gradient hero backgrounds, a serif

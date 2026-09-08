@@ -2,10 +2,11 @@
 
 import { companyInputSchema } from "@ccc/shared";
 import { revalidatePath } from "next/cache";
+import { requireUserId } from "@/lib/server/auth-helpers";
 import {
   createCompany,
-  deleteCompany,
   DuplicateDomainError,
+  untrackCompany,
   updateCompany,
 } from "@/lib/server/services/companies";
 
@@ -41,7 +42,8 @@ export async function createCompanyAction(
   }
 
   try {
-    await createCompany(parsed.data);
+    const userId = await requireUserId();
+    await createCompany(userId, parsed.data);
   } catch (error) {
     if (error instanceof DuplicateDomainError) {
       return { error: error.message };
@@ -65,7 +67,8 @@ export async function updateCompanyAction(
   }
 
   try {
-    await updateCompany(id, parsed.data);
+    const userId = await requireUserId();
+    await updateCompany(userId, id, parsed.data);
   } catch (error) {
     if (error instanceof DuplicateDomainError) {
       return { error: error.message };
@@ -79,7 +82,8 @@ export async function updateCompanyAction(
 }
 
 export async function deleteCompanyAction(id: string) {
-  await deleteCompany(id);
+  const userId = await requireUserId();
+  await untrackCompany(userId, id);
   revalidatePath("/companies");
   revalidatePath("/");
 }

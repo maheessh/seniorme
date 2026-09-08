@@ -17,7 +17,7 @@ export async function registerScheduler(): Promise<void> {
  */
 export async function enqueueDueSources(): Promise<void> {
   const activeSources = await prisma.careerSource.findMany({
-    where: { isActive: true, company: { monitoringEnabled: true } },
+    where: { isActive: true },
     select: { id: true, lastCheckedAt: true, checkFrequencyMin: true },
   });
 

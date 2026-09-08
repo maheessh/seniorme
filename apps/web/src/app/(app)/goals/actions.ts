@@ -2,6 +2,7 @@
 
 import { goalInputSchema } from "@ccc/shared";
 import { revalidatePath } from "next/cache";
+import { requireUserId } from "@/lib/server/auth-helpers";
 import {
   addGoalMilestone,
   createGoal,
@@ -31,7 +32,8 @@ export async function createGoalAction(_prevState: GoalFormState, formData: Form
   const parsed = parseGoalForm(formData);
   if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
 
-  await createGoal(parsed.data);
+  const userId = await requireUserId();
+  await createGoal(userId, parsed.data);
   revalidatePath("/goals");
   revalidatePath("/");
   return { ok: true };
@@ -45,36 +47,42 @@ export async function updateGoalAction(
   const parsed = parseGoalForm(formData);
   if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
 
-  await updateGoal(id, parsed.data);
+  const userId = await requireUserId();
+  await updateGoal(userId, id, parsed.data);
   revalidatePath("/goals");
   revalidatePath("/");
   return { ok: true };
 }
 
 export async function deleteGoalAction(id: string): Promise<void> {
-  await deleteGoal(id);
+  const userId = await requireUserId();
+  await deleteGoal(userId, id);
   revalidatePath("/goals");
   revalidatePath("/");
 }
 
 export async function incrementGoalAction(id: string, delta: number): Promise<void> {
-  await incrementGoalProgress(id, delta);
+  const userId = await requireUserId();
+  await incrementGoalProgress(userId, id, delta);
   revalidatePath("/goals");
   revalidatePath("/");
 }
 
 export async function addGoalMilestoneAction(goalId: string, title: string): Promise<void> {
   if (!title.trim()) return;
-  await addGoalMilestone(goalId, title.trim());
+  const userId = await requireUserId();
+  await addGoalMilestone(userId, goalId, title.trim());
   revalidatePath("/goals");
 }
 
 export async function toggleGoalMilestoneAction(milestoneId: string): Promise<void> {
-  await toggleGoalMilestone(milestoneId);
+  const userId = await requireUserId();
+  await toggleGoalMilestone(userId, milestoneId);
   revalidatePath("/goals");
 }
 
 export async function deleteGoalMilestoneAction(milestoneId: string): Promise<void> {
-  await deleteGoalMilestone(milestoneId);
+  const userId = await requireUserId();
+  await deleteGoalMilestone(userId, milestoneId);
   revalidatePath("/goals");
 }

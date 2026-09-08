@@ -9,9 +9,10 @@ const goalInclude = {
 
 export type GoalWithMilestones = Prisma.GoalGetPayload<{ include: typeof goalInclude }>;
 
-export function listGoals(filters: GoalFilters = {}) {
+export function listGoals(userId: string, filters: GoalFilters = {}) {
   return prisma.goal.findMany({
     where: {
+      userId,
       ...(filters.status ? { status: filters.status } : {}),
       ...(filters.search ? { title: { contains: filters.search, mode: "insensitive" } } : {}),
     },
@@ -20,8 +21,8 @@ export function listGoals(filters: GoalFilters = {}) {
   });
 }
 
-export function getGoal(id: string) {
-  return prisma.goal.findUnique({ where: { id }, include: goalInclude });
+export function getGoal(userId: string, id: string) {
+  return prisma.goal.findFirst({ where: { id, userId }, include: goalInclude });
 }
 
 function toData(input: GoalInput) {
@@ -37,20 +38,22 @@ function toData(input: GoalInput) {
   };
 }
 
-export function createGoal(input: GoalInput) {
-  return prisma.goal.create({ data: toData(input) });
+export function createGoal(userId: string, input: GoalInput) {
+  return prisma.goal.create({ data: { userId, ...toData(input) } });
 }
 
-export function updateGoal(id: string, input: GoalInput) {
+export async function updateGoal(userId: string, id: string, input: GoalInput) {
+  await prisma.goal.findFirstOrThrow({ where: { id, userId } });
   return prisma.goal.update({ where: { id }, data: toData(input) });
 }
 
-export function deleteGoal(id: string) {
+export async function deleteGoal(userId: string, id: string) {
+  await prisma.goal.findFirstOrThrow({ where: { id, userId } });
   return prisma.goal.delete({ where: { id } });
 }
 
-export async function incrementGoalProgress(id: string, delta: number): Promise<void> {
-  const goal = await prisma.goal.findUniqueOrThrow({ where: { id } });
+export async function incrementGoalProgress(userId: string, id: string, delta: number): Promise<void> {
+  const goal = await prisma.goal.findFirstOrThrow({ where: { id, userId } });
   const nextValue = Math.max(0, goal.currentValue + delta);
   const reachedTarget = goal.targetValue != null && nextValue >= goal.targetValue;
   await prisma.goal.update({
@@ -62,15 +65,23 @@ export async function incrementGoalProgress(id: string, delta: number): Promise<
   });
 }
 
-export async function addGoalMilestone(goalId: string, title: string, dueDate?: Date | null) {
+export async function addGoalMilestone(userId: string, goalId: string, title: string, dueDate?: Date | null) {
+  await prisma.goal.findFirstOrThrow({ where: { id: goalId, userId } });
   return prisma.goalMilestone.create({ data: { goalId, title, dueDate: dueDate ?? null } });
 }
 
-export async function toggleGoalMilestone(milestoneId: string) {
-  const milestone = await prisma.goalMilestone.findUniqueOrThrow({ where: { id: milestoneId } });
+async function requireOwnedMilestone(userId: string, milestoneId: string) {
+  return prisma.goalMilestone.findFirstOrThrow({
+    where: { id: milestoneId, goal: { userId } },
+  });
+}
+
+export async function toggleGoalMilestone(userId: string, milestoneId: string) {
+  const milestone = await requireOwnedMilestone(userId, milestoneId);
   return prisma.goalMilestone.update({ where: { id: milestoneId }, data: { isDone: !milestone.isDone } });
 }
 
-export function deleteGoalMilestone(milestoneId: string) {
+export async function deleteGoalMilestone(userId: string, milestoneId: string) {
+  await requireOwnedMilestone(userId, milestoneId);
   return prisma.goalMilestone.delete({ where: { id: milestoneId } });
 }

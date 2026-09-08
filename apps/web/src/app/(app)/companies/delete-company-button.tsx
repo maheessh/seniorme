@@ -30,7 +30,8 @@ export function DeleteCompanyButton({ id, name }: { id: string; name: string }) 
         <AlertDialogHeader>
           <AlertDialogTitle>Stop tracking {name}?</AlertDialogTitle>
           <AlertDialogDescription>
-            This removes the company and its career-page sources. This can&apos;t be undone.
+            This removes it from your list — your priority, notes, and filters for it are gone.
+            Career-page monitoring keeps running for anyone else tracking this company.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

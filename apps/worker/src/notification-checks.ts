@@ -48,6 +48,7 @@ async function checkApplicationDeadlines(now: Date, lookahead: Date): Promise<vo
       entityType: "application",
       entityId: application.id,
       dedupeKey: `deadline:${application.id}:${dayKey(application.deadline)}`,
+      userId: application.userId,
     });
   }
 }
@@ -72,6 +73,7 @@ async function checkFollowUps(now: Date): Promise<void> {
       // Re-fires once per day until the follow-up date is cleared or pushed out — a deliberate
       // recurring nudge rather than a single heads-up, unlike a fixed-date deadline.
       dedupeKey: `followup:${application.id}:${dayKey(now)}`,
+      userId: application.userId,
     });
   }
 }
@@ -99,6 +101,7 @@ async function checkInterviews(now: Date, lookahead: Date): Promise<void> {
       entityType: "application",
       entityId: event.applicationId,
       dedupeKey: `interview:${event.id}`,
+      userId: event.application.userId,
     });
   }
 }
@@ -121,6 +124,7 @@ async function checkGoalDeadlines(now: Date, lookahead: Date): Promise<void> {
       entityType: "goal",
       entityId: goal.id,
       dedupeKey: `goal-deadline:${goal.id}:${dayKey(goal.deadline)}`,
+      userId: goal.userId,
     });
   }
 }

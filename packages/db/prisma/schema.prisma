@@ -107,13 +107,25 @@ enum NotificationType {
 // -------------------- Models --------------------
 
 model User {
-  id        String    @id @default(cuid())
-  email     String    @unique
-  name      String?
-  image     String?
-  createdAt DateTime  @default(now())
+  id            String    @id @default(cuid())
+  email         String    @unique
+  /// Set by @auth/prisma-adapter when an OAuth provider reports the email as verified
+  /// (Google/GitHub both do on every sign-in) — part of Auth.js's standard Prisma schema
+  /// contract, not something this app reads itself.
+  emailVerified DateTime?
+  name          String?
+  image         String?
+  createdAt     DateTime  @default(now())
 
-  accounts Account[]
+  accounts      Account[]
+  userCompanies UserCompany[]
+  jobStatuses   UserJobStatus[]
+  applications  Application[]
+  contacts      Contact[]
+  projects      Project[]
+  goals         Goal[]
+  activity      ActivityEvent[]
+  notifications Notification[]
 }
 
 /// Auth.js OAuth account-linking table. JWT session strategy is used, so no
@@ -136,34 +148,57 @@ model Account {
   @@unique([provider, providerAccountId])
 }
 
+/// Shared catalog: one row per real-world company, the same for every user. Personal fields
+/// (priority, notes, scrape-scope filters, monitoring) live on UserCompany instead — two users
+/// tracking the same company share its scraped jobs but never each other's preferences.
 model Company {
-  id                String   @id @default(cuid())
-  name              String
-  domain            String?  @unique
-  logoUrl           String?
-  website           String?
-  location          String?
-  industry          String?
-  priority          Priority @default(MEDIUM)
-  notes             String?
-  rolesOfInterest   String[]
-  /// Scrape-scope filter: only keep newly-discovered postings whose location contains one of
-  /// these (case-insensitive substring match) — empty means no location filter. Lives on the
-  /// company, not the career source, since it expresses "what I care about here" regardless of
-  /// which specific board a posting came from.
-  targetLocationKeywords String[] @default([])
-  /// Scrape-scope filter: only keep newly-discovered postings posted within this many days —
-  /// null means no age filter. A posting with no known post date is never excluded by this (an
-  /// unknown age isn't evidence it's stale).
-  maxPostingAgeDays      Int?
-  monitoringEnabled Boolean  @default(true)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id        String   @id @default(cuid())
+  name      String
+  domain    String?  @unique
+  logoUrl   String?
+  website   String?
+  location  String?
+  industry  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   careerSources CareerSource[]
   jobs          Job[]
   applications  Application[]
   contacts      Contact[]
+  userCompanies UserCompany[]
+}
+
+/// A user's personal relationship to a shared Company: whether they track it, how they've
+/// configured it, and their own scrape-scope filters. Absence of a row for a given
+/// (userId, companyId) means "not tracked."
+model UserCompany {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  priority  Priority @default(MEDIUM)
+  notes     String?
+  rolesOfInterest String[]
+  /// Scrape-scope filter: only surface postings whose location contains one of these
+  /// (case-insensitive substring match) — empty means no location filter. Applied when reading
+  /// this user's Inbox, not at scrape time, since the underlying Job catalog is shared and must
+  /// stay complete for every other user tracking the same company.
+  targetLocationKeywords String[] @default([])
+  /// Scrape-scope filter: only surface postings posted within this many days — null means no
+  /// age filter. A posting with no known post date is never excluded by this.
+  maxPostingAgeDays Int?
+  /// Whether this user gets notified about new postings / scraper failures for this company.
+  /// Independent of whether the CareerSource itself is actively scraped (see
+  /// CareerSource.isActive) — monitoring the board is shared infrastructure that keeps running
+  /// as long as anyone tracks the company; this only gates this user's own notifications.
+  monitoringEnabled Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([userId, companyId])
+  @@index([companyId])
 }
 
 model CareerSource {
@@ -221,29 +256,45 @@ model Job {
   salaryMax          Int?
   postedAt           DateTime?
   discoveredAt       DateTime      @default(now())
-  inboxStatus        InboxStatus   @default(NEW)
   updatedAt          DateTime      @updatedAt
   isRemoved          Boolean       @default(false)
   possibleDuplicateOfId String?
   possibleDuplicateOf   Job?       @relation("JobDuplicates", fields: [possibleDuplicateOfId], references: [id])
   duplicateCandidates   Job[]      @relation("JobDuplicates")
 
-  application Application?
-  activity    ActivityEvent[]
+  applications Application[]
+  activity     ActivityEvent[]
+  userStatuses UserJobStatus[]
 
   @@unique([companyId, externalJobId])
-  @@index([companyId, inboxStatus])
   @@index([discoveredAt])
-  @@index([inboxStatus, updatedAt])
   @@index([title(ops: raw("gin_trgm_ops"))], type: Gin)
+}
+
+/// A user's personal triage state for a shared Job row. Absence of a row for a given
+/// (userId, jobId) means "not yet triaged" — treated as NEW.
+model UserJobStatus {
+  id        String      @id @default(cuid())
+  userId    String
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  jobId     String
+  job       Job         @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  status    InboxStatus @default(NEW)
+  updatedAt DateTime    @updatedAt
+
+  @@unique([userId, jobId])
+  @@index([userId, status])
+  @@index([status, updatedAt])
 }
 
 model Application {
   id                  String            @id @default(cuid())
-  jobId               String            @unique
+  jobId               String
   job                 Job               @relation(fields: [jobId], references: [id])
   companyId           String
   company             Company           @relation(fields: [companyId], references: [id])
+  userId              String
+  user                User              @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   stage               ApplicationStage  @default(SAVED)
   appliedAt           DateTime?
@@ -260,7 +311,8 @@ model Application {
   createdAt DateTime           @default(now())
   updatedAt DateTime           @updatedAt
 
-  @@index([stage])
+  @@unique([userId, jobId])
+  @@index([userId, stage])
   @@index([deadline])
   @@index([followUpDate])
 }
@@ -281,6 +333,8 @@ model ApplicationEvent {
 
 model Contact {
   id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   companyId   String
   company     Company  @relation(fields: [companyId], references: [id])
   name        String
@@ -290,10 +344,14 @@ model Contact {
   notes       String?
 
   applications Application[]
+
+  @@index([userId])
 }
 
 model Project {
   id              String        @id @default(cuid())
+  userId          String
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   name            String
   description     String?
   repoUrl         String?
@@ -309,6 +367,8 @@ model Project {
   tasks     ProjectTask[]
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
+
+  @@index([userId])
 }
 
 model ProjectTask {
@@ -323,6 +383,8 @@ model ProjectTask {
 
 model Goal {
   id           String       @id @default(cuid())
+  userId       String
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   title        String
   category     GoalCategory
   targetValue  Int?
@@ -336,6 +398,7 @@ model Goal {
   createdAt  DateTime        @default(now())
   updatedAt  DateTime        @updatedAt
 
+  @@index([userId])
   @@index([deadline])
 }
 
@@ -348,8 +411,14 @@ model GoalMilestone {
   dueDate DateTime?
 }
 
+/// A mix of shared, system-generated events about the catalog (job discovered/updated — no
+/// natural owner, userId null) and personal events about one user's own actions (status
+/// changes, applications — userId set). Null is "everyone tracking this job might care",
+/// not "unowned".
 model ActivityEvent {
   id         String   @id @default(cuid())
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
   type       String
   entityType String
   entityId   String
@@ -359,25 +428,30 @@ model ActivityEvent {
   metadata   Json?
   occurredAt DateTime @default(now())
 
+  @@index([userId, occurredAt])
   @@index([occurredAt])
   @@index([entityType, entityId])
 }
 
 model Notification {
   id         String           @id @default(cuid())
+  userId     String
+  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   type       NotificationType
   title      String
   body       String?
   linkUrl    String?
   entityType String?
   entityId   String?
-  /// Stable key (e.g. "deadline:{applicationId}:{date}") used to avoid re-notifying for the
-  /// same underlying event on every periodic check. Null for one-off notifications that don't
-  /// need dedup (e.g. a specific scrape run's "N new jobs found").
-  dedupeKey  String?          @unique
+  /// Stable key (e.g. "deadline:{applicationId}:{date}") used to avoid re-notifying this user
+  /// for the same underlying event on every periodic check. Company-wide triggers (new job,
+  /// scraper failing) fan out to one row per user tracking that company, each independently
+  /// deduped — the same dedupeKey recurring once per user is expected, not a collision.
+  dedupeKey  String?
   isRead     Boolean          @default(false)
   createdAt  DateTime         @default(now())
 
-  @@index([isRead, createdAt])
+  @@unique([userId, dedupeKey])
+  @@index([userId, isRead, createdAt])
   @@index([entityType, entityId])
 }

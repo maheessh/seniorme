@@ -3,6 +3,7 @@ import { HorizontalBarChart } from "@/components/charts/horizontal-bar-chart";
 import { WeeklyBarChart } from "@/components/charts/weekly-bar-chart";
 import { Card, CardContent, CardHeader, CardTitle, CardValue } from "@/components/ui/card";
 import { ProgressBar } from "@/components/ui/progress-bar";
+import { requireUserId } from "@/lib/server/auth-helpers";
 import { getAnalyticsData } from "@/lib/server/services/analytics";
 
 export const metadata: Metadata = { title: "Analytics" };
@@ -12,7 +13,8 @@ function pct(value: number): string {
 }
 
 export default async function AnalyticsPage() {
-  const data = await getAnalyticsData();
+  const userId = await requireUserId();
+  const data = await getAnalyticsData(userId);
   const hasAnyApplications = data.kpis.totalApplications > 0;
 
   return (

@@ -1,6 +1,5 @@
 "use client";
 
-import type { Company } from "@ccc/db";
 import { useActionState, useEffect, useRef, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import type { CompanyWithSources } from "@/lib/server/services/companies";
 import { createCompanyAction, updateCompanyAction, type CompanyFormState } from "./actions";
 
 function FieldError({ messages }: { messages?: string[] }) {
@@ -22,7 +22,13 @@ function FieldError({ messages }: { messages?: string[] }) {
   return <p className="text-xs text-destructive">{messages[0]}</p>;
 }
 
-export function CompanyFormDialog({ company, trigger }: { company?: Company; trigger: ReactNode }) {
+export function CompanyFormDialog({
+  company,
+  trigger,
+}: {
+  company?: CompanyWithSources;
+  trigger: ReactNode;
+}) {
   const [open, setOpen] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
 

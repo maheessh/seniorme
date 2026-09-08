@@ -33,10 +33,14 @@ ever mounted), a per-page browser tab title on every route, a skip-to-content li
 144-test unit/integration suite plus a 12-scenario Playwright E2E suite covering the flows in
 `ARCHITECTURE.md` §12 (see "Running tests"). All ten phases from `ARCHITECTURE.md` §14 are done.
 
-This app has no login and no `User` model — it's a single-person, local-only tool, and there
-was never anyone else it needed to authenticate against. The root `/` route is a simple landing
-page that links straight into `/dashboard`; every other route lives under `(app)` with the full
-sidebar/topbar chrome and no gate in front of it.
+**Status: multi-tenant SaaS pivot in progress.** Real accounts (Auth.js v5, Google + GitHub
+OAuth, JWT sessions, no passwords stored) are live, and every user gets their own private
+company list, job triage state, applications, projects, and goals — the underlying job catalog
+(companies, career pages, scraped postings) is shared across everyone, so tracking a company
+someone else already tracks reuses its scraped data instead of re-scraping it. The root `/`
+route is public; every route under `(app)` requires a signed-in session and redirects to
+`/sign-in` otherwise. See the "Multi-tenant data model" section below for the shared-catalog /
+per-user-overlay design.
 
 ## Stack
 
@@ -55,6 +59,24 @@ sidebar/topbar chrome and no gate in front of it.
   it to), robots.txt compliance, and per-host rate limiting
 - **Monorepo**: pnpm workspaces (`apps/web`, `apps/worker`, `packages/db`, `packages/shared`,
   `packages/scraper`)
+
+## Multi-tenant data model
+
+Two kinds of data, split deliberately:
+
+- **Shared catalog** (no owner, same for everyone): `Company`, `CareerSource`, `ScrapeRun`,
+  `Job`. Two users tracking Amazon read the same scraped postings instead of triggering two
+  independent scrapes of the same board.
+- **Per-user overlay**: `UserCompany` (which companies you track, your priority/notes/scrape-scope
+  filters for each) and `UserJobStatus` (your own NEW/SAVED/APPLIED/IGNORED triage on a shared
+  job — absence of a row means "not yet triaged," treated as NEW) replace what used to live
+  directly on `Company`/`Job`. `Application`, `Contact`, `Project`, and `Goal` belong directly to
+  one user.
+
+A company's scrape-scope filters (role/location/age) narrow what *you* see in your Inbox, not
+what gets scraped or stored — the underlying `Job` catalog stays complete so it's still accurate
+for every other user tracking that company, and so a job you already triaged never silently
+disappears just because you later tightened a filter.
 
 ## Prerequisites
 
@@ -86,8 +108,12 @@ pnpm dev:web      # http://localhost:3000
 pnpm dev:worker   # runs the scheduler + scrape queue consumer
 ```
 
-Open `http://localhost:3000` and hit Enter on the landing page to reach the dashboard — there's
-no login. From the Companies page, add a company with a career page URL, then use the refresh
+Open `http://localhost:3000`, sign in with Google or GitHub, and you'll land on the dashboard.
+You'll need your own OAuth app credentials in `.env` first — see `.env.example` for
+`AUTH_GOOGLE_ID`/`AUTH_GOOGLE_SECRET` and (optional) `AUTH_GITHUB_ID`/`AUTH_GITHUB_SECRET`, and
+generate `AUTH_SECRET` with `npx auth secret`. GitHub is entirely optional — the sign-in page
+only shows it once its credentials are set. From the Companies page, add a company with a career
+page URL, then use the refresh
 icon directly on its card/row ("scrape now") to trigger an immediate scrape of every active
 source it has — or open "Manage career pages" to refresh a single source, or just wait, since
 the scheduler checks every 5 minutes for any source whose 24h interval has elapsed. Manual
@@ -126,8 +152,10 @@ narrows the list, `Clear filters` restores it), and bulk-selecting jobs in the I
 several at once (select-all, an indeterminate state when only some are picked, bulk actions
 scoped correctly when filtered to one company). Uses the same `ccc_test` database as the worker's
 integration tests (set that up first, per above) — a `global-setup.ts` script reseeds it with
-fixture data before any spec runs (there's no login to establish, so that's all setup needs to
-do). Runs the real app via `next dev` on a dedicated port (3100) so it doesn't collide with a
+fixture data for one fixture user, then mints that user a signed session and writes it as
+Playwright storage state (`e2e/.auth/user.json`), so every spec starts already authenticated
+without driving a real Google/GitHub OAuth consent screen. Runs the real app via `next dev` on a
+dedicated port (3100) so it doesn't collide with a
 `pnpm dev:web` you already have running —
 Next.js's dev server refuses to start a second instance for the same project directory, so if
 you hit "Another next dev server is already running," that's `pnpm dev:web`, not a real

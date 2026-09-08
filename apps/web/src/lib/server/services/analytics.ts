@@ -14,10 +14,10 @@ function formatWeekLabel(date: Date): string {
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
-async function computeWeeklyApplications(weeks: number) {
+async function computeWeeklyApplications(userId: string, weeks: number) {
   const since = startOfWeek(new Date(Date.now() - (weeks - 1) * 7 * DAY_MS));
   const applications = await prisma.application.findMany({
-    where: { appliedAt: { gte: since } },
+    where: { userId, appliedAt: { gte: since } },
     select: { appliedAt: true },
   });
 
@@ -39,8 +39,9 @@ async function computeWeeklyApplications(weeks: number) {
   return ordered.map(({ key, label }) => ({ label, value: buckets.get(key) ?? 0 }));
 }
 
-async function computeAverageStageDuration() {
+async function computeAverageStageDuration(userId: string) {
   const events = await prisma.applicationEvent.findMany({
+    where: { application: { userId } },
     orderBy: [{ applicationId: "asc" }, { occurredAt: "asc" }],
     select: { applicationId: true, toStage: true, occurredAt: true },
   });
@@ -71,9 +72,10 @@ async function computeAverageStageDuration() {
   }).filter((row) => row.sampleSize > 0);
 }
 
-async function computeTopCompanies(limit: number) {
+async function computeTopCompanies(userId: string, limit: number) {
   const grouped = await prisma.job.groupBy({
     by: ["companyId"],
+    where: { company: { userCompanies: { some: { userId } } } },
     _count: { _all: true },
     orderBy: { _count: { companyId: "desc" } },
     take: limit,
@@ -86,15 +88,15 @@ async function computeTopCompanies(limit: number) {
   return grouped.map((g) => ({ label: nameById.get(g.companyId) ?? "Unknown", value: g._count._all }));
 }
 
-async function computeStageFunnel() {
-  const grouped = await prisma.application.groupBy({ by: ["stage"], _count: { _all: true } });
+async function computeStageFunnel(userId: string) {
+  const grouped = await prisma.application.groupBy({ by: ["stage"], where: { userId }, _count: { _all: true } });
   const countByStage = new Map(grouped.map((g) => [g.stage, g._count._all]));
   return ALL_STAGES.map((stage) => ({ label: STAGE_LABEL[stage], value: countByStage.get(stage) ?? 0 })).filter(
     (row) => row.value > 0,
   );
 }
 
-export async function getAnalyticsData() {
+export async function getAnalyticsData(userId: string) {
   const interviewOrLaterStages: ApplicationStage[] = ["OA", "RECRUITER_SCREEN", "INTERVIEW", "FINAL_INTERVIEW", "OFFER"];
 
   const [
@@ -112,19 +114,19 @@ export async function getAnalyticsData() {
     topCompanies,
     stageDurations,
   ] = await Promise.all([
-    prisma.job.count(),
-    prisma.application.count(),
-    prisma.application.count({ where: { stage: { in: interviewOrLaterStages } } }),
-    prisma.application.count({ where: { stage: "OFFER" } }),
-    prisma.application.count({ where: { stage: "REJECTED" } }),
-    prisma.goal.count(),
-    prisma.goal.count({ where: { status: "COMPLETED" } }),
-    prisma.project.count(),
-    prisma.project.count({ where: { status: "COMPLETED" } }),
-    computeWeeklyApplications(12),
-    computeStageFunnel(),
-    computeTopCompanies(8),
-    computeAverageStageDuration(),
+    prisma.job.count({ where: { company: { userCompanies: { some: { userId } } } } }),
+    prisma.application.count({ where: { userId } }),
+    prisma.application.count({ where: { userId, stage: { in: interviewOrLaterStages } } }),
+    prisma.application.count({ where: { userId, stage: "OFFER" } }),
+    prisma.application.count({ where: { userId, stage: "REJECTED" } }),
+    prisma.goal.count({ where: { userId } }),
+    prisma.goal.count({ where: { userId, status: "COMPLETED" } }),
+    prisma.project.count({ where: { userId } }),
+    prisma.project.count({ where: { userId, status: "COMPLETED" } }),
+    computeWeeklyApplications(userId, 12),
+    computeStageFunnel(userId),
+    computeTopCompanies(userId, 8),
+    computeAverageStageDuration(userId),
   ]);
 
   return {

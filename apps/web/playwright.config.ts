@@ -19,6 +19,10 @@ export default defineConfig({
   use: {
     baseURL,
     trace: "retain-on-failure",
+    // Written by e2e/seed.ts (global setup) — a signed session cookie for the fixture user, so
+    // every spec starts already authenticated instead of driving a real Google/GitHub OAuth
+    // consent flow.
+    storageState: "./e2e/.auth/user.json",
     ...devices["Desktop Chrome"],
   },
   webServer: {

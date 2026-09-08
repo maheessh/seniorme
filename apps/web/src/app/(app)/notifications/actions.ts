@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { requireUserId } from "@/lib/server/auth-helpers";
 import {
   deleteNotification,
   markAllNotificationsRead,
@@ -8,19 +9,22 @@ import {
 } from "@/lib/server/services/notifications";
 
 export async function markNotificationReadAction(id: string): Promise<void> {
-  await markNotificationRead(id);
+  const userId = await requireUserId();
+  await markNotificationRead(userId, id);
   revalidatePath("/notifications");
   revalidatePath("/", "layout");
 }
 
 export async function markAllNotificationsReadAction(): Promise<void> {
-  await markAllNotificationsRead();
+  const userId = await requireUserId();
+  await markAllNotificationsRead(userId);
   revalidatePath("/notifications");
   revalidatePath("/", "layout");
 }
 
 export async function deleteNotificationAction(id: string): Promise<void> {
-  await deleteNotification(id);
+  const userId = await requireUserId();
+  await deleteNotification(userId, id);
   revalidatePath("/notifications");
   revalidatePath("/", "layout");
 }

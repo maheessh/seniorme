@@ -9,9 +9,10 @@ const projectInclude = {
 
 export type ProjectWithTasks = Prisma.ProjectGetPayload<{ include: typeof projectInclude }>;
 
-export function listProjects(filters: ProjectFilters = {}) {
+export function listProjects(userId: string, filters: ProjectFilters = {}) {
   return prisma.project.findMany({
     where: {
+      userId,
       ...(filters.status ? { status: filters.status } : {}),
       ...(filters.search ? { name: { contains: filters.search, mode: "insensitive" } } : {}),
     },
@@ -20,8 +21,8 @@ export function listProjects(filters: ProjectFilters = {}) {
   });
 }
 
-export function getProject(id: string) {
-  return prisma.project.findUnique({ where: { id }, include: projectInclude });
+export function getProject(userId: string, id: string) {
+  return prisma.project.findFirst({ where: { id, userId }, include: projectInclude });
 }
 
 function toData(input: ProjectInput) {
@@ -40,28 +41,36 @@ function toData(input: ProjectInput) {
   };
 }
 
-export function createProject(input: ProjectInput) {
-  return prisma.project.create({ data: toData(input) });
+export function createProject(userId: string, input: ProjectInput) {
+  return prisma.project.create({ data: { userId, ...toData(input) } });
 }
 
-export function updateProject(id: string, input: ProjectInput) {
+export async function updateProject(userId: string, id: string, input: ProjectInput) {
+  await prisma.project.findFirstOrThrow({ where: { id, userId } });
   return prisma.project.update({ where: { id }, data: toData(input) });
 }
 
-export function deleteProject(id: string) {
+export async function deleteProject(userId: string, id: string) {
+  await prisma.project.findFirstOrThrow({ where: { id, userId } });
   return prisma.project.delete({ where: { id } });
 }
 
-export async function addProjectTask(projectId: string, title: string, dueDate?: Date | null) {
+export async function addProjectTask(userId: string, projectId: string, title: string, dueDate?: Date | null) {
+  await prisma.project.findFirstOrThrow({ where: { id: projectId, userId } });
   const count = await prisma.projectTask.count({ where: { projectId } });
   return prisma.projectTask.create({ data: { projectId, title, dueDate: dueDate ?? null, order: count } });
 }
 
-export async function toggleProjectTask(taskId: string) {
-  const task = await prisma.projectTask.findUniqueOrThrow({ where: { id: taskId } });
+async function requireOwnedTask(userId: string, taskId: string) {
+  return prisma.projectTask.findFirstOrThrow({ where: { id: taskId, project: { userId } } });
+}
+
+export async function toggleProjectTask(userId: string, taskId: string) {
+  const task = await requireOwnedTask(userId, taskId);
   return prisma.projectTask.update({ where: { id: taskId }, data: { isDone: !task.isDone } });
 }
 
-export function deleteProjectTask(taskId: string) {
+export async function deleteProjectTask(userId: string, taskId: string) {
+  await requireOwnedTask(userId, taskId);
   return prisma.projectTask.delete({ where: { id: taskId } });
 }

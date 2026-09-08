@@ -5,31 +5,46 @@ import { setInboxStatus } from "./inbox";
 
 export { extractJobFromUrl };
 
-async function resolveCompany(input: {
-  companyId?: string;
-  newCompanyName?: string;
-  newCompanyDomain?: string;
-}): Promise<string> {
-  if (input.companyId) return input.companyId;
+async function resolveCompany(
+  userId: string,
+  input: { companyId?: string; newCompanyName?: string; newCompanyDomain?: string },
+): Promise<string> {
+  let companyId: string;
 
-  const name = input.newCompanyName?.trim();
-  if (!name) throw new Error("Company name is required");
-  const domain = input.newCompanyDomain?.trim().toLowerCase() || undefined;
+  if (input.companyId) {
+    companyId = input.companyId;
+  } else {
+    const name = input.newCompanyName?.trim();
+    if (!name) throw new Error("Company name is required");
+    const domain = input.newCompanyDomain?.trim().toLowerCase() || undefined;
 
-  try {
-    const company = await prisma.company.create({
-      data: { name, domain: domain ?? null, logoUrl: deriveLogoUrl(domain) },
-    });
-    return company.id;
-  } catch (error) {
-    // Someone's already tracking this domain — reuse that company instead of erroring, since
-    // "the company already exists" is more helpful here than a hard failure mid-import.
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002" && domain) {
-      const existing = await prisma.company.findUnique({ where: { domain } });
-      if (existing) return existing.id;
+    try {
+      const company = await prisma.company.create({
+        data: { name, domain: domain ?? null, logoUrl: deriveLogoUrl(domain) },
+      });
+      companyId = company.id;
+    } catch (error) {
+      // Someone's already tracking this domain — reuse that company instead of erroring, since
+      // "the company already exists" is more helpful here than a hard failure mid-import.
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002" && domain) {
+        const existing = await prisma.company.findUnique({ where: { domain } });
+        if (!existing) throw error;
+        companyId = existing.id;
+      } else {
+        throw error;
+      }
     }
-    throw error;
   }
+
+  // The Inbox only surfaces jobs for companies this user tracks — importing a job for a
+  // company they don't track yet would otherwise leave it invisible right after import.
+  await prisma.userCompany.upsert({
+    where: { userId_companyId: { userId, companyId } },
+    create: { userId, companyId },
+    update: {},
+  });
+
+  return companyId;
 }
 
 export type JobImportInput = {
@@ -49,8 +64,11 @@ export type JobImportInput = {
   addToPipeline: boolean;
 };
 
-export async function importJob(input: JobImportInput): Promise<{ jobId: string; alreadyExisted: boolean }> {
-  const companyId = await resolveCompany(input);
+export async function importJob(
+  userId: string,
+  input: JobImportInput,
+): Promise<{ jobId: string; alreadyExisted: boolean }> {
+  const companyId = await resolveCompany(userId, input);
   const canonicalUrlHash = hashUrl(input.url);
 
   const existing = await prisma.job.findFirst({
@@ -86,6 +104,7 @@ export async function importJob(input: JobImportInput): Promise<{ jobId: string;
 
     await prisma.activityEvent.create({
       data: {
+        userId,
         type: "job_imported",
         entityType: "job",
         entityId: created.id,
@@ -97,7 +116,7 @@ export async function importJob(input: JobImportInput): Promise<{ jobId: string;
 
   // Reuses the same status-change logic the Inbox uses (activity logging, Application
   // creation on APPLIED) so an imported job behaves identically to a discovered one from here on.
-  await setInboxStatus(jobId, input.addToPipeline ? "APPLIED" : "SAVED");
+  await setInboxStatus(userId, jobId, input.addToPipeline ? "APPLIED" : "SAVED");
 
   return { jobId, alreadyExisted: Boolean(existing) };
 }

@@ -2,6 +2,7 @@
 
 import { projectInputSchema } from "@ccc/shared";
 import { revalidatePath } from "next/cache";
+import { requireUserId } from "@/lib/server/auth-helpers";
 import {
   addProjectTask,
   createProject,
@@ -36,7 +37,8 @@ export async function createProjectAction(
   const parsed = parseProjectForm(formData);
   if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
 
-  await createProject(parsed.data);
+  const userId = await requireUserId();
+  await createProject(userId, parsed.data);
   revalidatePath("/projects");
   revalidatePath("/");
   return { ok: true };
@@ -50,31 +52,36 @@ export async function updateProjectAction(
   const parsed = parseProjectForm(formData);
   if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
 
-  await updateProject(id, parsed.data);
+  const userId = await requireUserId();
+  await updateProject(userId, id, parsed.data);
   revalidatePath("/projects");
   revalidatePath("/");
   return { ok: true };
 }
 
 export async function deleteProjectAction(id: string): Promise<void> {
-  await deleteProject(id);
+  const userId = await requireUserId();
+  await deleteProject(userId, id);
   revalidatePath("/projects");
   revalidatePath("/");
 }
 
 export async function addProjectTaskAction(projectId: string, title: string): Promise<void> {
   if (!title.trim()) return;
-  await addProjectTask(projectId, title.trim());
+  const userId = await requireUserId();
+  await addProjectTask(userId, projectId, title.trim());
   revalidatePath("/projects");
 }
 
 export async function toggleProjectTaskAction(taskId: string): Promise<void> {
-  await toggleProjectTask(taskId);
+  const userId = await requireUserId();
+  await toggleProjectTask(userId, taskId);
   revalidatePath("/projects");
   revalidatePath("/");
 }
 
 export async function deleteProjectTaskAction(taskId: string): Promise<void> {
-  await deleteProjectTask(taskId);
+  const userId = await requireUserId();
+  await deleteProjectTask(userId, taskId);
   revalidatePath("/projects");
 }

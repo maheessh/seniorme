@@ -3,6 +3,7 @@ import { ALL_STAGES } from "@ccc/shared";
 import { Kanban } from "lucide-react";
 import type { Metadata } from "next";
 import { EmptyState } from "@/components/empty-state";
+import { requireUserId } from "@/lib/server/auth-helpers";
 import { getApplicationsByStage, listApplications } from "@/lib/server/services/applications";
 
 export const metadata: Metadata = { title: "Pipeline" };
@@ -22,8 +23,9 @@ export default async function PipelinePage({
       ? (params.stage as ApplicationStage)
       : undefined;
 
-  const grouped = view === "kanban" ? await getApplicationsByStage() : null;
-  const rows = view === "table" ? await listApplications({ stage, search: params.search }) : null;
+  const userId = await requireUserId();
+  const grouped = view === "kanban" ? await getApplicationsByStage(userId) : null;
+  const rows = view === "table" ? await listApplications(userId, { stage, search: params.search }) : null;
 
   const hasAnyApplications = grouped
     ? Object.values(grouped).some((apps) => apps.length > 0)

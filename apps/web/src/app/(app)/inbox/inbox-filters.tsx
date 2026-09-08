@@ -7,7 +7,7 @@ import { useRef, useState } from "react";
 import { CompanyLogo } from "@/components/company-logo";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { searchCompaniesAction } from "./import-actions";
+import { searchCompaniesAction } from "./actions";
 
 // Matches the literal enum-derived text already shown on each row's badge (inbox-row.tsx does
 // `employmentType.replace("_", " ")`, no title-casing) — same label wherever it appears.

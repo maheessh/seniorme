@@ -16,7 +16,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     redirect("/sign-in");
   }
 
-  const unreadNotificationCount = await getUnreadNotificationCount();
+  const unreadNotificationCount = await getUnreadNotificationCount(session.user.id);
 
   return (
     <div className="flex h-screen w-full">

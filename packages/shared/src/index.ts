@@ -6,3 +6,4 @@ export * from "./queue";
 export * from "./application-stage";
 export * from "./project-goal-labels";
 export * from "./notification-labels";
+export * from "./scrape-scope-filter";

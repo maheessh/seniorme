@@ -13,9 +13,10 @@ export type ApplicationWithRelations = Prisma.ApplicationGetPayload<{ include: t
 
 export type ApplicationFilters = { stage?: ApplicationStage; search?: string };
 
-export function listApplications(filters: ApplicationFilters = {}) {
+export function listApplications(userId: string, filters: ApplicationFilters = {}) {
   return prisma.application.findMany({
     where: {
+      userId,
       ...(filters.stage ? { stage: filters.stage } : {}),
       ...(filters.search
         ? {
@@ -31,8 +32,14 @@ export function listApplications(filters: ApplicationFilters = {}) {
   });
 }
 
-export async function getApplicationsByStage(): Promise<Record<ApplicationStage, ApplicationWithRelations[]>> {
-  const all = await prisma.application.findMany({ include: applicationInclude, orderBy: { updatedAt: "desc" } });
+export async function getApplicationsByStage(
+  userId: string,
+): Promise<Record<ApplicationStage, ApplicationWithRelations[]>> {
+  const all = await prisma.application.findMany({
+    where: { userId },
+    include: applicationInclude,
+    orderBy: { updatedAt: "desc" },
+  });
   const grouped = {} as Record<ApplicationStage, ApplicationWithRelations[]>;
   for (const stage of ALL_STAGES) grouped[stage] = [];
   for (const application of all) grouped[application.stage].push(application);
@@ -48,13 +55,14 @@ const applicationDetailInclude = {
 
 export type ApplicationDetail = Prisma.ApplicationGetPayload<{ include: typeof applicationDetailInclude }>;
 
-export function getApplication(id: string) {
-  return prisma.application.findUnique({ where: { id }, include: applicationDetailInclude });
+export function getApplication(userId: string, id: string) {
+  return prisma.application.findFirst({ where: { id, userId }, include: applicationDetailInclude });
 }
 
-async function logGlobalActivity(applicationId: string, jobId: string, summary: string) {
+async function logGlobalActivity(userId: string, applicationId: string, jobId: string, summary: string) {
   await prisma.activityEvent.create({
     data: {
+      userId,
       type: "application_stage_changed",
       entityType: "application",
       entityId: applicationId,
@@ -65,12 +73,13 @@ async function logGlobalActivity(applicationId: string, jobId: string, summary: 
 }
 
 export async function moveApplicationStage(
+  userId: string,
   id: string,
   toStage: ApplicationStage,
   options: { note?: string; scheduledAt?: Date } = {},
 ): Promise<void> {
-  const application = await prisma.application.findUniqueOrThrow({
-    where: { id },
+  const application = await prisma.application.findFirstOrThrow({
+    where: { id, userId },
     include: { job: true, company: true },
   });
 
@@ -95,14 +104,15 @@ export async function moveApplicationStage(
   ]);
 
   await logGlobalActivity(
+    userId,
     id,
     application.jobId,
     `${application.job.title} at ${application.company.name} moved to ${STAGE_LABEL[toStage]}`,
   );
 }
 
-export async function addApplicationNote(id: string, note: string, scheduledAt?: Date): Promise<void> {
-  const application = await prisma.application.findUniqueOrThrow({ where: { id } });
+export async function addApplicationNote(userId: string, id: string, note: string, scheduledAt?: Date): Promise<void> {
+  const application = await prisma.application.findFirstOrThrow({ where: { id, userId } });
   await prisma.applicationEvent.create({
     data: { applicationId: id, fromStage: application.stage, toStage: application.stage, note, scheduledAt },
   });
@@ -117,12 +127,13 @@ export type ApplicationDetailsInput = {
   recruiterContactId?: string | null;
 };
 
-export function updateApplicationDetails(id: string, data: ApplicationDetailsInput) {
+export async function updateApplicationDetails(userId: string, id: string, data: ApplicationDetailsInput) {
+  await prisma.application.findFirstOrThrow({ where: { id, userId } });
   return prisma.application.update({ where: { id }, data });
 }
 
-export function listContactsForCompany(companyId: string) {
-  return prisma.contact.findMany({ where: { companyId }, orderBy: { name: "asc" } });
+export function listContactsForCompany(userId: string, companyId: string) {
+  return prisma.contact.findMany({ where: { userId, companyId }, orderBy: { name: "asc" } });
 }
 
 export type ContactInput = {
@@ -132,6 +143,6 @@ export type ContactInput = {
   linkedInUrl?: string | null;
 };
 
-export function createContact(companyId: string, input: ContactInput) {
-  return prisma.contact.create({ data: { companyId, ...input } });
+export function createContact(userId: string, companyId: string, input: ContactInput) {
+  return prisma.contact.create({ data: { userId, companyId, ...input } });
 }

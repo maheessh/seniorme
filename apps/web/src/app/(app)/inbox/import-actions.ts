@@ -1,7 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { searchCompanies } from "@/lib/server/services/companies";
+import { requireUserId } from "@/lib/server/auth-helpers";
+import { searchAllCompanies } from "@/lib/server/services/companies";
 import { extractJobFromUrl, importJob, type JobImportInput } from "@/lib/server/services/job-import";
 
 export async function extractJobUrlAction(
@@ -23,8 +24,8 @@ export async function extractJobUrlAction(
   }
 }
 
-export async function searchCompaniesAction(query: string) {
-  return searchCompanies(query);
+export async function searchAllCompaniesAction(query: string) {
+  return searchAllCompanies(query);
 }
 
 export type ImportFormState = { error?: string; ok?: true } | undefined;
@@ -75,8 +76,9 @@ export async function confirmJobImportAction(
     addToPipeline: formData.get("addToPipeline") === "on",
   };
 
+  const userId = await requireUserId();
   try {
-    await importJob(input);
+    await importJob(userId, input);
   } catch (error) {
     return { error: error instanceof Error ? error.message : "Failed to import job" };
   }

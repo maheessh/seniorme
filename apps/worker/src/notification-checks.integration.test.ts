@@ -1,16 +1,19 @@
 import { prisma, type ApplicationStage } from "@ccc/db";
 import { beforeEach, describe, expect, it } from "vitest";
 import { runNotificationChecks } from "./notification-checks";
-import { createTestCompany, resetDb } from "./test-helpers";
+import { createTestCompany, createTestUser, resetDb } from "./test-helpers";
 
 const DAY_MS = 86_400_000;
 
 let companyId: string;
+let userId: string;
 
 beforeEach(async () => {
   await resetDb();
   const company = await createTestCompany();
+  const user = await createTestUser();
   companyId = company.id;
+  userId = user.id;
 });
 
 async function createApplication(overrides: {
@@ -32,6 +35,7 @@ async function createApplication(overrides: {
     data: {
       jobId: job.id,
       companyId,
+      userId,
       stage: overrides.stage ?? "SAVED",
       deadline: overrides.deadline,
       followUpDate: overrides.followUpDate,
@@ -98,7 +102,7 @@ describe("runNotificationChecks — follow-ups", () => {
 describe("runNotificationChecks — goal deadlines", () => {
   it("notifies for a goal deadline inside the lookahead window", async () => {
     await prisma.goal.create({
-      data: { title: "Apply to 50 jobs", category: "APPLICATIONS", deadline: new Date(Date.now() + DAY_MS) },
+      data: { userId, title: "Apply to 50 jobs", category: "APPLICATIONS", deadline: new Date(Date.now() + DAY_MS) },
     });
     await runNotificationChecks();
     expect(await prisma.notification.count({ where: { type: "GOAL_DEADLINE" } })).toBe(1);
@@ -107,6 +111,7 @@ describe("runNotificationChecks — goal deadlines", () => {
   it("does not notify for a completed goal", async () => {
     await prisma.goal.create({
       data: {
+        userId,
         title: "Apply to 50 jobs",
         category: "APPLICATIONS",
         deadline: new Date(Date.now() + DAY_MS),

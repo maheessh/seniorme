@@ -1,5 +1,6 @@
 import type { EmploymentType, InboxStatus } from "@ccc/db";
 import type { Metadata } from "next";
+import { requireUserId } from "@/lib/server/auth-helpers";
 import { getCompaniesByIds } from "@/lib/server/services/companies";
 import { countInboxJobs, INBOX_STATUSES, listInboxJobs } from "@/lib/server/services/inbox";
 import { ImportJobDialog } from "./import-job-dialog";
@@ -41,10 +42,11 @@ export default async function InboxPage({
   const companyIds = parseCsv(params.companies);
   const employmentTypes = parseEmploymentTypes(params.types);
 
+  const userId = await requireUserId();
   const [counts, jobs, selectedCompanies] = await Promise.all([
-    countInboxJobs(),
-    listInboxJobs(status, { companyIds, employmentTypes }),
-    getCompaniesByIds(companyIds),
+    countInboxJobs(userId),
+    listInboxJobs(userId, status, { companyIds, employmentTypes }),
+    getCompaniesByIds(userId, companyIds),
   ]);
 
   // InboxFilters and InboxList both hold local state seeded from these URL-derived values, but

@@ -2,6 +2,7 @@
 
 import type { ApplicationStage } from "@ccc/db";
 import { revalidatePath } from "next/cache";
+import { requireUserId } from "@/lib/server/auth-helpers";
 import {
   addApplicationNote,
   createContact,
@@ -13,15 +14,17 @@ import {
 } from "@/lib/server/services/applications";
 
 export async function moveStageAction(applicationId: string, toStage: ApplicationStage): Promise<void> {
-  await moveApplicationStage(applicationId, toStage);
+  const userId = await requireUserId();
+  await moveApplicationStage(userId, applicationId, toStage);
   revalidatePath("/pipeline");
   revalidatePath("/");
 }
 
 export async function getApplicationDetailAction(applicationId: string) {
-  const application = await getApplication(applicationId);
+  const userId = await requireUserId();
+  const application = await getApplication(userId, applicationId);
   if (!application) return null;
-  const contacts = await listContactsForCompany(application.companyId);
+  const contacts = await listContactsForCompany(userId, application.companyId);
   return { application, contacts };
 }
 
@@ -50,7 +53,8 @@ export async function updateDetailsAction(
     notes: parseString(formData.get("notes")),
     recruiterContactId: parseString(formData.get("recruiterContactId")),
   };
-  await updateApplicationDetails(applicationId, data);
+  const userId = await requireUserId();
+  await updateApplicationDetails(userId, applicationId, data);
   revalidatePath("/pipeline");
   revalidatePath("/");
   return { ok: true };
@@ -64,7 +68,8 @@ export async function addNoteAction(
   const note = String(formData.get("note") ?? "").trim();
   if (!note) return { error: "Enter a note" };
   const scheduledAt = parseDate(formData.get("scheduledAt")) ?? undefined;
-  await addApplicationNote(applicationId, note, scheduledAt);
+  const userId = await requireUserId();
+  await addApplicationNote(userId, applicationId, note, scheduledAt);
   revalidatePath("/pipeline");
   return { ok: true };
 }
@@ -76,7 +81,8 @@ export async function createContactAction(
 ): Promise<ActionState> {
   const name = String(formData.get("name") ?? "").trim();
   if (!name) return { error: "Name is required" };
-  await createContact(companyId, {
+  const userId = await requireUserId();
+  await createContact(userId, companyId, {
     name,
     role: parseString(formData.get("role")),
     email: parseString(formData.get("email")),

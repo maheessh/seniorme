@@ -4,6 +4,7 @@ import { Plus, Target } from "lucide-react";
 import type { Metadata } from "next";
 import { EmptyState } from "@/components/empty-state";
 import { Button } from "@/components/ui/button";
+import { requireUserId } from "@/lib/server/auth-helpers";
 
 export const metadata: Metadata = { title: "Goals" };
 import { listGoals } from "@/lib/server/services/goals";
@@ -20,7 +21,8 @@ export default async function GoalsPage({
   const status =
     params.status && (GOAL_STATUSES as string[]).includes(params.status) ? (params.status as GoalStatus) : undefined;
 
-  const goals = await listGoals({ status, search: params.search });
+  const userId = await requireUserId();
+  const goals = await listGoals(userId, { status, search: params.search });
   const hasAny = goals.length > 0 || Boolean(params.search || status);
 
   return (

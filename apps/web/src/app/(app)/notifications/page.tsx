@@ -1,6 +1,7 @@
 import { Bell } from "lucide-react";
 import type { Metadata } from "next";
 import { EmptyState } from "@/components/empty-state";
+import { requireUserId } from "@/lib/server/auth-helpers";
 import { getNotifications } from "@/lib/server/services/notifications";
 import { MarkAllReadButton } from "./mark-all-read-button";
 import { NotificationRow } from "./notification-row";
@@ -8,7 +9,8 @@ import { NotificationRow } from "./notification-row";
 export const metadata: Metadata = { title: "Notifications" };
 
 export default async function NotificationsPage() {
-  const notifications = await getNotifications();
+  const userId = await requireUserId();
+  const notifications = await getNotifications(userId);
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
   return (

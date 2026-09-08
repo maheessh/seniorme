@@ -19,6 +19,15 @@ against the platforms' current UI, not as something proven to work exactly as wr
 > since Auth.js itself is gone; it's kept here as part of the historical build record. The
 > `NEXTAUTH_*`/`APP_USER_*` env vars and the "sign in" verification step referenced further down
 > are likewise gone — see the updated env var table and "Verify" section.
+>
+> **Update (multi-tenant pivot):** auth is back — Auth.js v5, OAuth-only (Google + GitHub, no
+> passwords), JWT sessions. Bug #6's `trustHost` fix applies again: every deployment needs
+> `AUTH_SECRET` set, and the OAuth apps' redirect URIs registered for the real deployed origin
+> (`<origin>/api/auth/callback/google` and `/github`). `apps/web/Dockerfile` re-verified with a
+> real `docker build` after this change (the `ENV AUTH_SECRET="build-time-placeholder..."` line
+> mirrors the old `NEXTAUTH_SECRET` placeholder) — the build succeeds and correctly compiles
+> `/api/auth/[...nextauth]`, `/sign-in`, and the `proxy.ts` middleware. Not yet re-verified is an
+> actual container *run* with real OAuth credentials against a live deployment.
 
 ## What was actually broken
 
@@ -144,9 +153,13 @@ only needs Redis to *enqueue* scrape jobs (Company/Career-source actions), not t
 |---|---|
 | `DATABASE_URL` | The managed Postgres connection string from step 1 |
 | `REDIS_URL` | The managed Redis connection string from step 2 |
+| `AUTH_SECRET` | Generate with `npx auth secret` — **web only** |
+| `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` | From a Google Cloud Console OAuth client (Web application), with redirect URI `<origin>/api/auth/callback/google` registered — **web only** |
+| `AUTH_GITHUB_ID` / `AUTH_GITHUB_SECRET` | Optional — from a GitHub OAuth App, redirect URI `<origin>/api/auth/callback/github`; the sign-in page only shows GitHub once these are set — **web only** |
 | `ANTHROPIC_API_KEY` | Optional — enables the LLM-assisted job-link-import fallback tier — **web only** |
 
-`worker` only needs `DATABASE_URL` and `REDIS_URL`.
+`worker` only needs `DATABASE_URL` and `REDIS_URL` — it never checks a session, since career-page
+scraping is shared infrastructure, not scoped to any one user.
 
 ### 4. `web` on Vercel
 

@@ -2,6 +2,7 @@ import { Building2, Plus } from "lucide-react";
 import type { Metadata } from "next";
 import { EmptyState } from "@/components/empty-state";
 import { Button } from "@/components/ui/button";
+import { requireUserId } from "@/lib/server/auth-helpers";
 import { listCompanies } from "@/lib/server/services/companies";
 import { CompaniesToolbar } from "./companies-toolbar";
 
@@ -23,7 +24,8 @@ export default async function CompaniesPage({
       ? (params.priority as Priority)
       : undefined;
 
-  const companies = await listCompanies({ search: params.search, priority });
+  const userId = await requireUserId();
+  const companies = await listCompanies(userId, { search: params.search, priority });
   const hasAnyCompanies = companies.length > 0 || Boolean(params.search || priority);
 
   return (

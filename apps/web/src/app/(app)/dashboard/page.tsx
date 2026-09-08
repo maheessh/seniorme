@@ -2,12 +2,15 @@ import { prisma } from "@ccc/db";
 import type { Metadata } from "next";
 import { Card, CardContent, CardHeader, CardTitle, CardValue } from "@/components/ui/card";
 import { ProgressBar } from "@/components/ui/progress-bar";
+import { requireUserId } from "@/lib/server/auth-helpers";
 
 export const metadata: Metadata = { title: "Dashboard" };
 
-async function getDashboardData() {
+async function getDashboardData(userId: string) {
   const startOfToday = new Date();
   startOfToday.setHours(0, 0, 0, 0);
+
+  const trackedCompanyFilter = { company: { userCompanies: { some: { userId } } } };
 
   const [
     companyCount,
@@ -23,30 +26,34 @@ async function getDashboardData() {
     activeProjects,
     activeGoals,
   ] = await Promise.all([
-    prisma.company.count(),
-    prisma.job.count(),
-    prisma.job.count({ where: { discoveredAt: { gte: startOfToday } } }),
-    prisma.job.count({ where: { inboxStatus: "SAVED" } }),
-    prisma.application.count(),
+    prisma.userCompany.count({ where: { userId } }),
+    prisma.job.count({ where: trackedCompanyFilter }),
+    prisma.job.count({ where: { ...trackedCompanyFilter, discoveredAt: { gte: startOfToday } } }),
+    prisma.userJobStatus.count({ where: { userId, status: "SAVED" } }),
+    prisma.application.count({ where: { userId } }),
     prisma.application.count({
-      where: { stage: { in: ["OA", "RECRUITER_SCREEN", "INTERVIEW", "FINAL_INTERVIEW"] } },
+      where: { userId, stage: { in: ["OA", "RECRUITER_SCREEN", "INTERVIEW", "FINAL_INTERVIEW"] } },
     }),
-    prisma.application.count({ where: { stage: "OFFER" } }),
-    prisma.application.count({ where: { stage: "REJECTED" } }),
+    prisma.application.count({ where: { userId, stage: "OFFER" } }),
+    prisma.application.count({ where: { userId, stage: "REJECTED" } }),
     prisma.application.findMany({
-      where: { deadline: { gte: startOfToday } },
+      where: { userId, deadline: { gte: startOfToday } },
       orderBy: { deadline: "asc" },
       take: 5,
       include: { company: true, job: true },
     }),
-    prisma.activityEvent.findMany({ orderBy: { occurredAt: "desc" }, take: 8 }),
+    prisma.activityEvent.findMany({
+      where: { OR: [{ userId }, { userId: null, job: trackedCompanyFilter }] },
+      orderBy: { occurredAt: "desc" },
+      take: 8,
+    }),
     prisma.project.findMany({
-      where: { status: { not: "COMPLETED" } },
+      where: { userId, status: { not: "COMPLETED" } },
       orderBy: [{ priority: "desc" }, { updatedAt: "desc" }],
       take: 5,
     }),
     prisma.goal.findMany({
-      where: { status: { in: ["NOT_STARTED", "IN_PROGRESS"] } },
+      where: { userId, status: { in: ["NOT_STARTED", "IN_PROGRESS"] } },
       orderBy: [{ priority: "desc" }, { updatedAt: "desc" }],
       take: 5,
     }),
@@ -69,7 +76,8 @@ async function getDashboardData() {
 }
 
 export default async function DashboardPage() {
-  const data = await getDashboardData();
+  const userId = await requireUserId();
+  const data = await getDashboardData(userId);
 
   const tiles = [
     { label: "Companies tracked", value: data.companyCount },
