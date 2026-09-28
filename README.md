@@ -42,6 +42,18 @@ route is public; every route under `(app)` requires a signed-in session and redi
 `/sign-in` otherwise. See the "Multi-tenant data model" section below for the shared-catalog /
 per-user-overlay design.
 
+## See it run
+
+<p align="center">
+  <img src="docs/media/seniorme-walkthrough.gif" width="880" alt="Walkthrough: the landing page, the dashboard, keyboard triage in the inbox, the Kanban pipeline, analytics, and the command palette." />
+</p>
+
+<sub>Recorded locally with an invented demo account and fictional companies. Career pages are scraped once, safely, into a shared catalog; each user's tracking and applications live in their own overlay.</sub>
+
+<p align="center">
+  <img src="docs/media/seniorme-architecture.png" width="880" alt="Architecture: career pages, a BullMQ scheduler, an SSRF-safe fetch layer, then either refusal or tiered extraction into a shared catalog and a per-user overlay." />
+</p>
+
 ## Stack
 
 - **Web**: Next.js 16 (App Router) + TypeScript + Tailwind CSS v4
